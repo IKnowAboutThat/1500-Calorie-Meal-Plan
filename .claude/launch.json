@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "meal-planner",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "app", "-l", "tcp://0.0.0.0:3000", "--no-clipboard"],
+      "port": 3000
+    }
+  ]
+}

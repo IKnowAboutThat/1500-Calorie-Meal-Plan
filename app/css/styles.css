@@ -1,0 +1,1351 @@
+/* ============================================================
+   1500 Calorie Meal Plan - Complete Stylesheet
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1. CSS Custom Properties
+   ------------------------------------------------------------ */
+:root {
+  --color-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-primary: #2d6a4f;
+  --color-primary-light: #52b788;
+  --color-primary-dark: #1b4332;
+  --color-accent: #e76f51;
+  --color-text: #212529;
+  --color-text-secondary: #6c757d;
+  --color-border: #dee2e6;
+  --color-success: #40916c;
+  --color-warning: #f4a261;
+  --color-danger: #e63946;
+  --color-macro-cal: #e76f51;
+  --color-macro-protein: #2d6a4f;
+  --color-macro-fiber: #457b9d;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --transition: 0.2s ease;
+}
+
+/* ------------------------------------------------------------
+   2. Reset & Base
+   ------------------------------------------------------------ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  font-family: var(--font-family);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  line-height: 1.3;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* ------------------------------------------------------------
+   3. Header
+   ------------------------------------------------------------ */
+.header,
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--color-primary-dark);
+  color: #ffffff;
+  padding: 1rem 2rem;
+}
+
+.header h1,
+header h1 {
+  font-size: 1.5rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.header .subtitle,
+header .subtitle {
+  font-size: 0.875rem;
+  opacity: 0.8;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------
+   4. Nav Tabs
+   ------------------------------------------------------------ */
+.nav-tabs {
+  display: flex;
+  overflow-x: auto;
+  gap: 4px;
+  background-color: var(--color-surface);
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-tab {
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: var(--font-family);
+  background: transparent;
+  color: var(--color-text);
+  white-space: nowrap;
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.nav-tab:hover {
+  background-color: #e9ecef;
+}
+
+.nav-tab--active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.nav-tab--active:hover {
+  background-color: var(--color-primary-dark);
+}
+
+/* ------------------------------------------------------------
+   5. Main Content
+   ------------------------------------------------------------ */
+#app-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+/* ------------------------------------------------------------
+   6. Cards
+   ------------------------------------------------------------ */
+.card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+/* ------------------------------------------------------------
+   7. Recipe Cards
+   ------------------------------------------------------------ */
+.recipe-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.recipe-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.recipe-card__name {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.recipe-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.recipe-card__macros {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* ------------------------------------------------------------
+   8. Grid Layouts
+   ------------------------------------------------------------ */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+/* ------------------------------------------------------------
+   9. Meal Planner Grid
+   ------------------------------------------------------------ */
+.planner-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.planner-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1rem;
+}
+
+.planner-day__label {
+  min-width: 100px;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-primary-dark);
+}
+
+.planner-day__slots {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.planner-slot {
+  min-width: 200px;
+  flex: 1;
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.planner-slot--empty {
+  border: 2px dashed var(--color-border);
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 1.5rem;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.planner-slot--empty:hover {
+  border-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.planner-slot--filled {
+  border-left: 3px solid var(--color-primary);
+}
+
+.planner-slot__name[data-action="view-recipe"] {
+  transition: color 0.15s;
+}
+
+.planner-slot__name[data-action="view-recipe"]:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.planner-day__macros {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  margin-top: 0.25rem;
+}
+
+/* ------------------------------------------------------------
+   10. Macro Progress Bars
+   ------------------------------------------------------------ */
+.macro-bar-container {
+  margin-bottom: 0.5rem;
+}
+
+.macro-bar-container .macro-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+  color: var(--color-text-secondary);
+}
+
+.macro-bar {
+  height: 8px;
+  border-radius: 4px;
+  background-color: #e9ecef;
+  overflow: hidden;
+}
+
+.macro-bar__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.macro-bar--cal .macro-bar__fill {
+  background-color: var(--color-macro-cal);
+}
+
+.macro-bar--protein .macro-bar__fill {
+  background-color: var(--color-macro-protein);
+}
+
+.macro-bar--fiber .macro-bar__fill {
+  background-color: var(--color-macro-fiber);
+}
+
+/* ------------------------------------------------------------
+   11. Shopping List
+   ------------------------------------------------------------ */
+.shopping-list {
+  margin-bottom: 1rem;
+}
+
+.shopping-category {
+  margin-bottom: 1rem;
+}
+
+.shopping-category h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--color-border);
+  margin: 0 0 0.5rem;
+  color: var(--color-primary-dark);
+}
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  transition: opacity var(--transition);
+}
+
+.shopping-item__checkbox {
+  flex-shrink: 0;
+}
+
+.shopping-item__name {
+  flex: 1;
+}
+
+.shopping-item__quantity {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.shopping-item--checked {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+/* ------------------------------------------------------------
+   12. Pantry Items
+   ------------------------------------------------------------ */
+.pantry-item {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pantry-item__name {
+  flex: 1;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.pantry-item__quantity {
+  width: 80px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-family: var(--font-family);
+  text-align: center;
+}
+
+.pantry-item__unit {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  min-width: 40px;
+}
+
+.pantry-item__badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.pantry-item__actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* ------------------------------------------------------------
+   13. Dashboard
+   ------------------------------------------------------------ */
+.dashboard {
+  margin-bottom: 1rem;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.stat-card__icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.stat-card__value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-primary-dark);
+}
+
+.stat-card__label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.125rem;
+}
+
+.dashboard-chart {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-chart h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
+.dashboard-day {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+/* ------------------------------------------------------------
+   14. Buttons
+   ------------------------------------------------------------ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: var(--font-family);
+  font-weight: 500;
+  line-height: 1.4;
+  transition: background-color var(--transition), transform var(--transition), box-shadow var(--transition);
+  text-decoration: none;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.btn-secondary {
+  background-color: #e9ecef;
+  color: var(--color-text);
+}
+
+.btn-secondary:hover {
+  background-color: #dee2e6;
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background-color: #c5303c;
+}
+
+.btn-success {
+  background-color: var(--color-success);
+  color: #ffffff;
+}
+
+.btn-success:hover {
+  background-color: #357a5b;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.8rem;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.btn-icon:hover {
+  background-color: #e9ecef;
+  color: var(--color-text);
+}
+
+/* ------------------------------------------------------------
+   15. Forms
+   ------------------------------------------------------------ */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label,
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-family: var(--font-family);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+}
+
+input[type="number"] {
+  width: auto;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+/* ------------------------------------------------------------
+   16. Badges
+   ------------------------------------------------------------ */
+.badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.badge-cuisine {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.badge-cal {
+  background-color: var(--color-macro-cal);
+  color: #ffffff;
+}
+
+.badge-protein {
+  background-color: var(--color-macro-protein);
+  color: #ffffff;
+}
+
+.badge-fiber {
+  background-color: var(--color-macro-fiber);
+  color: #ffffff;
+}
+
+.badge-tag {
+  background-color: #e9ecef;
+  color: var(--color-text);
+}
+
+.badge-phase-standard {
+  background-color: #d0ecf5;
+  color: #1a6985;
+}
+
+.badge-phase-luteal {
+  background-color: #f3d5e0;
+  color: #8b3a62;
+}
+
+/* ------------------------------------------------------------
+   17. Modal
+   ------------------------------------------------------------ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  max-width: 700px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 2rem;
+  position: relative;
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background-color: #c0c0c0;
+  border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background-color: #a0a0a0;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  line-height: 1;
+  padding: 0.25rem;
+  transition: color var(--transition);
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ------------------------------------------------------------
+   18. Toast Notifications
+   ------------------------------------------------------------ */
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-family: var(--font-family);
+  animation: slideIn 0.3s ease;
+  pointer-events: auto;
+  box-shadow: var(--shadow-md);
+  max-width: 360px;
+}
+
+.toast-success {
+  background-color: var(--color-success);
+}
+
+.toast-error {
+  background-color: var(--color-danger);
+}
+
+.toast-info {
+  background-color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------
+   19. Search & Filter Bar
+   ------------------------------------------------------------ */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  align-items: center;
+}
+
+.filter-bar input[type="search"] {
+  flex: 1;
+  min-width: 200px;
+}
+
+.filter-bar select {
+  width: auto;
+  min-width: 140px;
+}
+
+/* ------------------------------------------------------------
+   20. Recipe Detail
+   ------------------------------------------------------------ */
+.recipe-detail__header {
+  margin-bottom: 1rem;
+}
+
+.recipe-detail__header h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.recipe-detail__macros {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1rem;
+}
+
+.recipe-detail__macro-item {
+  text-align: center;
+}
+
+.recipe-detail__macro-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.recipe-detail__macro-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.recipe-detail__ingredients {
+  margin-bottom: 1.5rem;
+}
+
+.recipe-detail__ingredients h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.recipe-detail__ingredients table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recipe-detail__ingredients th {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 2px solid var(--color-border);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+}
+
+.recipe-detail__ingredients td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.9rem;
+}
+
+/* ------------------------------------------------------------
+   21. Phase Indicator
+   ------------------------------------------------------------ */
+.phase-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.phase-badge--standard {
+  background-color: #d0ecf5;
+  color: #1a6985;
+}
+
+.phase-badge--luteal {
+  background-color: #f3d5e0;
+  color: #8b3a62;
+}
+
+/* ------------------------------------------------------------
+   22. Empty States
+   ------------------------------------------------------------ */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-text-secondary);
+  font-size: 1.1rem;
+}
+
+.empty-state p {
+  margin: 0.5rem 0;
+}
+
+/* ------------------------------------------------------------
+   23. Utility Classes
+   ------------------------------------------------------------ */
+.flex {
+  display: flex;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.gap-1 {
+  gap: 0.5rem;
+}
+
+.gap-2 {
+  gap: 1rem;
+}
+
+.mt-1 {
+  margin-top: 0.5rem;
+}
+
+.mt-2 {
+  margin-top: 1rem;
+}
+
+.mb-1 {
+  margin-bottom: 0.5rem;
+}
+
+.mb-2 {
+  margin-bottom: 1rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+
+.fw-bold {
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------
+   24. Favorite Heart Button
+   ------------------------------------------------------------ */
+.favorite-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #ccc;
+  transition: color var(--transition), transform var(--transition);
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.1);
+}
+
+.favorite-btn.favorite--active {
+  color: var(--color-accent);
+}
+
+/* ------------------------------------------------------------
+   25. Week Navigation
+   ------------------------------------------------------------ */
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.week-nav__label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   26. Auto-Plan Panel
+   ------------------------------------------------------------ */
+.auto-plan {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.auto-plan h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.auto-plan__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.auto-plan__option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.auto-plan__generate {
+  margin-top: 0.5rem;
+}
+
+/* ------------------------------------------------------------
+   27. Template Cards
+   ------------------------------------------------------------ */
+.template-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.template-card__info {
+  flex: 1;
+  min-width: 150px;
+}
+
+.template-card__name {
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.template-card__meta {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.template-card__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ------------------------------------------------------------
+   28. Scale Controls
+   ------------------------------------------------------------ */
+.scale-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.scale-controls__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.scale-controls .scale-preset {
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: var(--font-family);
+  color: var(--color-text);
+  transition: background-color var(--transition), border-color var(--transition);
+}
+
+.scale-controls .scale-preset:hover {
+  background-color: #e9ecef;
+}
+
+.scale-controls .scale-preset--active {
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------
+   29. Custom Checkboxes
+   ------------------------------------------------------------ */
+input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------
+   30. Data Tables
+   ------------------------------------------------------------ */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 2px solid var(--color-border);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.data-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.9rem;
+}
+
+.data-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* ------------------------------------------------------------
+   31. Animations
+   ------------------------------------------------------------ */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.page-transition {
+  animation: fadeIn 0.2s ease;
+}
+
+/* ------------------------------------------------------------
+   32. Planner Macro Status Indicators
+   ------------------------------------------------------------ */
+.macro-status {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+.macro-status--good {
+  background-color: var(--color-success);
+}
+
+.macro-status--warn {
+  background-color: var(--color-warning);
+}
+
+.macro-status--bad {
+  background-color: var(--color-danger);
+}
+
+/* ------------------------------------------------------------
+   33. Responsive - Tablet (min-width: 768px)
+   ------------------------------------------------------------ */
+@media (min-width: 768px) {
+  .grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .planner-day {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .planner-day__label {
+    padding-top: 0.75rem;
+  }
+
+  .planner-day__slots {
+    flex-wrap: nowrap;
+  }
+
+  .planner-day__macros {
+    border-top: none;
+    border-left: 1px solid var(--color-border);
+    padding-top: 0;
+    padding-left: 0.75rem;
+    margin-top: 0;
+    flex-direction: column;
+    min-width: 80px;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------
+   34. Responsive - Desktop (min-width: 1024px)
+   ------------------------------------------------------------ */
+@media (min-width: 1024px) {
+  .grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  #app-content {
+    padding: 2rem 1.5rem;
+  }
+
+  .header,
+  header {
+    padding: 1rem 3rem;
+  }
+
+  .nav-tabs {
+    padding: 0.5rem 2rem;
+  }
+
+  .modal-content {
+    padding: 2.5rem;
+  }
+}
+
+/* ------------------------------------------------------------
+   35. Print Styles
+   ------------------------------------------------------------ */
+@media print {
+  .header,
+  header,
+  .nav-tabs,
+  .modal-overlay,
+  .toast-container,
+  .btn,
+  .filter-bar,
+  .auto-plan,
+  .week-nav {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 12pt;
+  }
+
+  #app-content {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  .card,
+  .recipe-card,
+  .planner-slot,
+  .planner-day,
+  .stat-card,
+  .dashboard-chart,
+  .dashboard-day,
+  .template-card,
+  .pantry-item {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    break-inside: avoid;
+  }
+
+  .recipe-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* ------------------------------------------------------------
+   36. Scrollbar Styling (webkit)
+   ------------------------------------------------------------ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #ccc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #aaa;
+}

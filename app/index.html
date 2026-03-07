@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meal Planner</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <header>
+    <h1>Meal Planner</h1>
+    <p class="header-subtitle">1,500 cal | 135g protein | 30-40g fiber | Dairy-Free &amp; Gluten-Free</p>
+  </header>
+
+  <nav class="nav-tabs">
+    <button class="nav-tab nav-tab--active" data-page="recipes">Recipes</button>
+    <button class="nav-tab" data-page="planner">Planner</button>
+    <button class="nav-tab" data-page="shopping-list">Shopping List</button>
+    <button class="nav-tab" data-page="pantry">Pantry</button>
+    <button class="nav-tab" data-page="dashboard">Dashboard</button>
+    <button class="nav-tab" data-page="settings">Settings</button>
+  </nav>
+
+  <main id="app-content"></main>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-content" id="modal-content"></div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
