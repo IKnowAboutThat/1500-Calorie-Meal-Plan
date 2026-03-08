@@ -1,6 +1,7 @@
 """Claude Agent SDK integration for parsing raw recipe text into structured data."""
 
 import json
+import os
 import re
 import anyio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
@@ -48,12 +49,15 @@ Rules:
 async def _parse_recipe_async(text):
     """Async implementation of recipe parsing using Claude Agent SDK."""
     result_text = ""
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
+    env = {"CLAUDE_CODE_OAUTH_TOKEN": oauth_token} if oauth_token else {}
+
     async for message in query(
         prompt=f"Parse this recipe:\n\n{text}",
         options=ClaudeAgentOptions(
             system_prompt=SYSTEM_PROMPT,
             allowed_tools=[],
-            max_turns=1,
+            env=env,
         )
     ):
         if isinstance(message, ResultMessage):
