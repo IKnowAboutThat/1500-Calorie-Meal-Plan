@@ -11,7 +11,8 @@
  *   generateWeekPlan(weekId, options)
  */
 
-import { recipes, adrenalCocktail } from './data/recipes.js';
+import { adrenalCocktail } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // ---------------------------------------------------------------------------
@@ -115,7 +116,7 @@ function getPhaseForDate(date) {
 // ---------------------------------------------------------------------------
 
 const recipesById = new Map();
-for (const r of recipes) {
+for (const r of getRecipes()) {
   recipesById.set(r.id, r);
 }
 
@@ -223,8 +224,8 @@ export function generateWeekPlan(weekId, options = {}) {
   }
 
   // Separate recipes by type
-  const mealRecipes = recipes.filter(r => r.mealType === 'meal');
-  const snackRecipes = recipes.filter(r => r.mealType === 'snack');
+  const mealRecipes = getRecipes().filter(r => r.mealType === 'meal');
+  const snackRecipes = getRecipes().filter(r => r.mealType === 'snack');
 
   // Track what has been used this week for variety
   const weekRecipeIds = new Set();

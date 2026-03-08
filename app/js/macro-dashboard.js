@@ -5,7 +5,8 @@
  * Exports a single render function consumed by the app router.
  */
 
-import { recipes, adrenalCocktail } from './data/recipes.js';
+import { adrenalCocktail } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // ---------------------------------------------------------------------------
@@ -115,7 +116,7 @@ const DAY_ABBREVS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // ---------------------------------------------------------------------------
 
 const recipesById = new Map();
-for (const r of recipes) {
+for (const r of getRecipes()) {
   recipesById.set(r.id, r);
 }
 

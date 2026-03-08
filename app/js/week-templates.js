@@ -12,7 +12,8 @@
  *   - saveCurrentWeekAsTemplate(weekId, name)
  */
 
-import { recipes, mealPlan } from './data/recipes.js';
+import { mealPlan } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // ---------------------------------------------------------------------------
@@ -34,7 +35,7 @@ const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 // ---------------------------------------------------------------------------
 
 const recipesById = new Map();
-for (const r of recipes) {
+for (const r of getRecipes()) {
   recipesById.set(r.id, r);
 }
 

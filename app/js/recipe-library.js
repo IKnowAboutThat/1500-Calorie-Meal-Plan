@@ -5,7 +5,7 @@
  * favorite toggling, and user tag management.
  */
 
-import { recipes } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // Dynamic import to avoid circular deps with app.js
@@ -21,7 +21,7 @@ async function getApp() {
  * Extract sorted unique values for a given key across all recipes.
  */
 function uniqueValues(key) {
-  const set = new Set(recipes.map((r) => r[key]));
+  const set = new Set(getRecipes().map((r) => r[key]));
   return Array.from(set).sort();
 }
 
@@ -72,7 +72,7 @@ let filterState = {
 // ============================================================
 
 function getFilteredRecipes() {
-  let filtered = [...recipes];
+  let filtered = [...getRecipes()];
 
   // Search filter: match recipe name or any ingredient name
   if (filterState.search) {
@@ -314,7 +314,7 @@ function renderGrid(container) {
   }
 
   if (countEl) {
-    countEl.textContent = `Showing ${filtered.length} of ${recipes.length} recipes`;
+    countEl.textContent = `Showing ${filtered.length} of ${getRecipes().length} recipes`;
   }
 
   if (clearBtn) {
@@ -470,7 +470,7 @@ function rerenderTagPills(recipeId) {
 // ============================================================
 
 export async function openRecipeModal(recipeId) {
-  const recipe = recipes.find((r) => r.id === recipeId);
+  const recipe = getRecipes().find((r) => r.id === recipeId);
   if (!recipe) return;
 
   const html = buildRecipeDetailHTML(recipe);
@@ -702,7 +702,7 @@ function attachEvents(container) {
       const isNowFav = store.toggleFavorite(recipeId);
       favAction.classList.toggle('favorite--active', isNowFav);
 
-      const recipeName = recipes.find((r) => r.id === recipeId)?.name || 'Recipe';
+      const recipeName = getRecipes().find((r) => r.id === recipeId)?.name || 'Recipe';
       showToast(isNowFav ? `${recipeName} added to favorites` : `${recipeName} removed from favorites`);
 
       // If favorites-only filter is active and we unfavorited, re-render grid
@@ -751,7 +751,7 @@ function handleModalClick(e) {
     favDetailBtn.classList.toggle('favorite--active', isNowFav);
     favDetailBtn.innerHTML = `&#9829; ${isNowFav ? 'Favorited' : 'Add to Favorites'}`;
 
-    const recipeName = recipes.find((r) => r.id === recipeId)?.name || 'Recipe';
+    const recipeName = getRecipes().find((r) => r.id === recipeId)?.name || 'Recipe';
     showToast(isNowFav ? `${recipeName} added to favorites` : `${recipeName} removed from favorites`);
 
     // Also update the card heart in the grid if visible
@@ -850,7 +850,7 @@ export function renderRecipeLibrary(container) {
   // Update results count
   const countEl = container.querySelector('#results-count');
   if (countEl) {
-    countEl.textContent = `Showing ${filtered.length} of ${recipes.length} recipes`;
+    countEl.textContent = `Showing ${filtered.length} of ${getRecipes().length} recipes`;
   }
 
   // Restore selected values on filter dropdowns (for re-renders)

@@ -6,13 +6,13 @@
  * recipe-library, meal-planner, and integration modules.
  */
 
-import { recipes } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 
 // ============================================================
 // Recipe lookup map
 // ============================================================
 
-const recipeMap = new Map(recipes.map(r => [r.id, r]));
+const recipeMap = new Map(getRecipes().map(r => [r.id, r]));
 
 // ============================================================
 // Core scaling

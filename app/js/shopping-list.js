@@ -8,7 +8,8 @@
  * Exports a single render function consumed by the app router.
  */
 
-import { recipes, ingredientCategories } from './data/recipes.js';
+import { ingredientCategories } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,7 @@ const CATEGORY_ORDER = [
 // ---------------------------------------------------------------------------
 
 const recipesById = new Map();
-for (const r of recipes) {
+for (const r of getRecipes()) {
   recipesById.set(r.id, r);
 }
 

@@ -5,7 +5,8 @@
  * and clear-all functionality. Items are persisted via the store module.
  */
 
-import { recipes, ingredientCategories } from './data/recipes.js';
+import { ingredientCategories } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // Dynamic import to avoid circular deps with app.js
@@ -42,7 +43,7 @@ function debounce(fn, delay) {
  */
 function getAllIngredientNames() {
   const nameSet = new Set();
-  for (const recipe of recipes) {
+  for (const recipe of getRecipes()) {
     for (const ing of recipe.ingredients) {
       nameSet.add(ing.name);
     }

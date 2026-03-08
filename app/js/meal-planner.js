@@ -5,7 +5,8 @@
  * Exports a single render function consumed by the app router.
  */
 
-import { recipes, adrenalCocktail } from './data/recipes.js';
+import { adrenalCocktail } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // ---------------------------------------------------------------------------
@@ -130,7 +131,7 @@ function getPhaseForDate(date) {
 
 /** Map recipe ID to its full data object. */
 const recipesById = new Map();
-for (const r of recipes) {
+for (const r of getRecipes()) {
   recipesById.set(r.id, r);
 }
 
@@ -520,7 +521,7 @@ async function openRecipePicker(dayKey, slotName) {
         <button class="btn btn-sm btn-secondary recipe-filter-btn" data-filter="favorites">Favorites</button>
       </div>
       <div id="recipe-picker-list" style="max-height: 50vh; overflow-y: auto;">
-        ${renderRecipeList(recipes, 'all', '')}
+        ${renderRecipeList(getRecipes(),'all', '')}
       </div>
     </div>
   `;
@@ -541,7 +542,7 @@ async function openRecipePicker(dayKey, slotName) {
   if (searchInput) {
     searchInput.addEventListener('input', () => {
       const query = searchInput.value;
-      listEl.innerHTML = renderRecipeList(recipes, activeFilter, query);
+      listEl.innerHTML = renderRecipeList(getRecipes(),activeFilter, query);
     });
     // Focus the search input
     searchInput.focus();
@@ -560,7 +561,7 @@ async function openRecipePicker(dayKey, slotName) {
         b.classList.toggle('btn-secondary', b.dataset.filter !== activeFilter);
       });
       const query = searchInput ? searchInput.value : '';
-      listEl.innerHTML = renderRecipeList(recipes, activeFilter, query);
+      listEl.innerHTML = renderRecipeList(getRecipes(),activeFilter, query);
     });
   }
 
