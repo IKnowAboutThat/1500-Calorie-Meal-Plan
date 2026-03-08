@@ -311,16 +311,16 @@ function renderCyclePreview() {
   let html = '';
   for (let day = 1; day <= cycleLength; day++) {
     const isLuteal = day >= lutealStart && day <= lutealEnd;
-    const bgColor = isLuteal ? '#b388ff' : '#26a69a';
+    const bgColor = isLuteal ? '#7c6fae' : '#4a7c59';
     const label = isLuteal ? 'Luteal' : 'Standard';
     html += `<div
       style="
         display: inline-block;
         width: 20px;
         height: 20px;
-        border-radius: 4px;
+        border-radius: var(--radius);
         background: ${bgColor};
-        color: #fff;
+        color: #ffffff;
         font-size: 9px;
         line-height: 20px;
         text-align: center;

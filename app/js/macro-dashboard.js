@@ -269,12 +269,12 @@ const CHART_STYLES = `
   }
   .chart-bar {
     width: 40px;
-    border-radius: 4px 4px 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     display: flex;
     align-items: flex-start;
     justify-content: center;
     min-height: 4px;
-    transition: height 0.3s ease;
+    transition: height 0.3s var(--ease-out);
     position: relative;
   }
   .chart-bar__value {
@@ -540,27 +540,27 @@ function renderWeeklyOverview(dayData, targets) {
   return `
     <div class="dashboard-stats">
       <div class="stat-card">
-        <div class="stat-card__value">${avgCal.toLocaleString()}</div>
+        <div class="stat-card__value" style="background: linear-gradient(135deg, #c27044, #e8956a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${avgCal.toLocaleString()}</div>
         <div class="stat-card__label">Avg Daily Calories</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card__value">${avgProtein}g</div>
+        <div class="stat-card__value" style="background: linear-gradient(135deg, #3d7c8c, #5ca8b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${avgProtein}g</div>
         <div class="stat-card__label">Avg Daily Protein</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card__value">${avgFiber}g</div>
+        <div class="stat-card__value" style="background: linear-gradient(135deg, #7c6fae, #a498d1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${avgFiber}g</div>
         <div class="stat-card__label">Avg Daily Fiber</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card__value">${daysOnTarget}/${daysWithFood.length || 7}</div>
+        <div class="stat-card__value" style="background: linear-gradient(135deg, #4a7c59, #6aab7b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${daysOnTarget}/${daysWithFood.length || 7}</div>
         <div class="stat-card__label">Days On Target</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card__value">${totalAdrenal}/${maxAdrenal}</div>
+        <div class="stat-card__value" style="background: linear-gradient(135deg, #4a7c59, #6aab7b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${totalAdrenal}/${maxAdrenal}</div>
         <div class="stat-card__label">Adrenal Cocktails</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card__value">${totalMeals}</div>
+        <div class="stat-card__value" style="background: linear-gradient(135deg, #4a7c59, #6aab7b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${totalMeals}</div>
         <div class="stat-card__label">Meals Planned</div>
       </div>
     </div>
@@ -579,7 +579,7 @@ function renderBarChart(dayData, targets) {
     if (!d.hasRecipes) {
       return `
         <div class="chart-bar-group">
-          <div class="chart-bar" style="height: 4px; background: #e9ecef;">
+          <div class="chart-bar" style="height: 4px; background: var(--color-border-light);">
             <span class="chart-bar__value chart-bar__value--above">---</span>
           </div>
           <div class="chart-bar__label">${d.dayAbbrev}</div>
@@ -594,7 +594,7 @@ function renderBarChart(dayData, targets) {
 
     return `
       <div class="chart-bar-group">
-        <div class="chart-bar" style="height: ${barHeight}px; background: var(--color-macro-cal);">
+        <div class="chart-bar" style="height: ${barHeight}px; background: linear-gradient(180deg, #c27044, #e8956a); box-shadow: 0 0 8px rgba(194,112,68,0.3);">
           <span class="chart-bar__value${showAbove ? ' chart-bar__value--above' : ''}">${fmtNum(d.macros.calories)}</span>
         </div>
         <div class="chart-bar__label">${d.dayAbbrev}</div>

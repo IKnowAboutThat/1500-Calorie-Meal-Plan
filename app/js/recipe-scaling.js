@@ -118,7 +118,7 @@ export function renderScaledIngredientTable(recipe, scaleFactor) {
 
   // Inline style fallback for the scaled-row highlight
   const inlineStyle = isScaled
-    ? `<style>.scaled-row { background-color: rgba(45,106,79,0.05); }</style>\n`
+    ? `<style>.scaled-row { background-color: rgba(74,124,89,0.06); }</style>\n`
     : '';
 
   return `${inlineStyle}<table class="data-table scaled-table">

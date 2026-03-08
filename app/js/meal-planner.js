@@ -363,11 +363,14 @@ function renderSlot(dayKey, slot) {
     `;
   }
 
+  const isCooked = slot.cooked;
+
   return `
-    <div class="planner-slot planner-slot--filled" data-day="${dayKey}" data-slot="${slot.slotName}">
+    <div class="planner-slot planner-slot--filled${isCooked ? ' planner-slot--cooked' : ''}" data-day="${dayKey}" data-slot="${slot.slotName}">
       <div class="planner-slot__header">
         <span class="text-sm text-secondary">${slot.slotName}</span>
         <div style="display:flex;gap:0.25rem;">
+          <button class="btn btn-sm btn-icon${isCooked ? ' planner-slot__cooked-btn--active' : ''}" data-action="mark-cooked" data-day="${dayKey}" data-slot="${slot.slotName}" data-recipe-id="${recipe.id}" title="${isCooked ? 'Already cooked' : 'Mark as cooked'}">&#x2713;</button>
           <button class="btn btn-sm btn-icon" data-action="swap-recipe" data-day="${dayKey}" data-slot="${slot.slotName}" title="Change recipe">&#x21bb;</button>
           <button class="btn btn-sm btn-icon" data-action="remove-recipe" data-day="${dayKey}" data-slot="${slot.slotName}" title="Remove">&times;</button>
         </div>
@@ -402,8 +405,8 @@ function renderDayMacros(macros) {
         <span class="text-sm" style="min-width: 42px; font-weight: 600;">${fmtNum(macros.calories)}</span>
         <span class="text-sm text-secondary">/ ${fmtNum(targets.calories)} cal</span>
       </div>
-      <div style="height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden;">
-        <div style="height: 100%; width: ${calPct}%; background: var(--color-macro-cal); border-radius: 2px; transition: width 0.3s ease;"></div>
+      <div style="height: 4px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden;">
+        <div style="height: 100%; width: ${calPct}%; background: linear-gradient(90deg, #c27044, #e8956a); border-radius: var(--radius-full); transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 6px rgba(194,112,68,0.3);"></div>
       </div>
     </div>
     <div style="flex: 1; min-width: 0;">
@@ -412,8 +415,8 @@ function renderDayMacros(macros) {
         <span class="text-sm" style="min-width: 42px; font-weight: 600;">${fmtNum(macros.protein, 0)}g</span>
         <span class="text-sm text-secondary">/ ${fmtNum(targets.protein)}g P</span>
       </div>
-      <div style="height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden;">
-        <div style="height: 100%; width: ${proPct}%; background: var(--color-macro-protein); border-radius: 2px; transition: width 0.3s ease;"></div>
+      <div style="height: 4px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden;">
+        <div style="height: 100%; width: ${proPct}%; background: linear-gradient(90deg, #3d7c8c, #5ca8b8); border-radius: var(--radius-full); transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 6px rgba(61,124,140,0.3);"></div>
       </div>
     </div>
     <div style="flex: 1; min-width: 0;">
@@ -422,8 +425,8 @@ function renderDayMacros(macros) {
         <span class="text-sm" style="min-width: 42px; font-weight: 600;">${fmtNum(macros.fiber, 0)}g</span>
         <span class="text-sm text-secondary">/ ${targets.fiberMin}-${targets.fiberMax}g F</span>
       </div>
-      <div style="height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden;">
-        <div style="height: 100%; width: ${fibPct}%; background: var(--color-macro-fiber); border-radius: 2px; transition: width 0.3s ease;"></div>
+      <div style="height: 4px; background: var(--color-border); border-radius: var(--radius-full); overflow: hidden;">
+        <div style="height: 100%; width: ${fibPct}%; background: linear-gradient(90deg, #7c6fae, #a498d1); border-radius: var(--radius-full); transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 6px rgba(124,111,174,0.3);"></div>
       </div>
     </div>
   `;
@@ -623,7 +626,7 @@ function renderRecipeList(allRecipes, filter, searchQuery) {
         margin-bottom: 0.5rem;
         cursor: pointer;
         transition: background-color var(--transition);
-      " onmouseover="this.style.backgroundColor='#f0f7f4'" onmouseout="this.style.backgroundColor=''">
+      " onmouseover="this.style.backgroundColor='rgba(74,124,89,0.15)'" onmouseout="this.style.backgroundColor=''">
         <div style="flex: 1; min-width: 0;">
           <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             <strong style="font-size: 0.95rem;">${r.name}</strong>
@@ -633,7 +636,7 @@ function renderRecipeList(allRecipes, filter, searchQuery) {
             <span class="badge badge-cal">${r.calories} cal</span>
             <span class="badge badge-protein">${fmtNum(r.protein, 1)}g P</span>
             <span class="badge badge-fiber">${fmtNum(r.fiber, 1)}g F</span>
-            ${r.cuisine ? `<span class="badge" style="background: #e9ecef; color: var(--color-text);">${r.cuisine}</span>` : ''}
+            ${r.cuisine ? `<span class="badge" style="background: var(--color-bg-subtle); color: var(--color-primary-dark); border: 1px solid var(--color-border); border-radius: var(--radius-full);">${r.cuisine}</span>` : ''}
           </div>
         </div>
       </div>
@@ -749,6 +752,43 @@ function attachEventListeners(container) {
       renderTemplatesPanel(modalContent, currentWeekId, () => {
         renderMealPlanner(container);
       });
+      return;
+    }
+
+    // ---- Mark as cooked (checkmark button on filled slot) ----
+    const cookedBtn = target.closest('[data-action="mark-cooked"]');
+    if (cookedBtn) {
+      e.stopPropagation();
+      const dayKey = cookedBtn.dataset.day;
+      const slotName = cookedBtn.dataset.slot;
+      const recipeId = cookedBtn.dataset.recipeId;
+
+      const plan = loadOrCreatePlan(currentWeekId);
+      const dayPlan = plan.days[dayKey];
+      if (!dayPlan) return;
+
+      const slot = dayPlan.slots.find((s) => s.slotName === slotName);
+      if (!slot || !slot.recipeId) return;
+
+      if (slot.cooked) {
+        const { showToast } = await getApp();
+        showToast('Already marked as cooked', 'info');
+        return;
+      }
+
+      slot.cooked = true;
+      store.saveWeekPlan(currentWeekId, plan);
+
+      const newCount = store.incrementCookCount(recipeId);
+      const recipe = getRecipeById(recipeId);
+
+      if (currentContainer) {
+        renderMealPlanner(currentContainer);
+      }
+
+      const { showToast } = await getApp();
+      const name = recipe ? recipe.name : 'Recipe';
+      showToast(`"${name}" marked as cooked! (${newCount} total)`, 'success');
       return;
     }
 

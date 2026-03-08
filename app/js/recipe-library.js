@@ -63,6 +63,7 @@ let filterState = {
   protein: '',
   mealType: '',       // '' = all, 'meal', 'snack'
   favoritesOnly: false,
+  cookCountMax: '',   // '' = no filter, '0' = never cooked, '3'/'5'/'10' = less than N
   sort: 'name-asc',
 };
 
@@ -103,7 +104,19 @@ function getFilteredRecipes() {
     filtered = filtered.filter((r) => favorites.includes(r.id));
   }
 
+  // Cook count filter
+  if (filterState.cookCountMax !== '') {
+    const maxCount = parseInt(filterState.cookCountMax, 10);
+    const counts = store.getCookCounts();
+    if (maxCount === 0) {
+      filtered = filtered.filter((r) => !(counts[r.id]));
+    } else {
+      filtered = filtered.filter((r) => (counts[r.id] || 0) < maxCount);
+    }
+  }
+
   // Sort
+  const cookCounts = store.getCookCounts();
   filtered.sort((a, b) => {
     switch (filterState.sort) {
       case 'name-asc':
@@ -118,6 +131,10 @@ function getFilteredRecipes() {
         return a.protein - b.protein;
       case 'protein-desc':
         return b.protein - a.protein;
+      case 'cook-desc':
+        return (cookCounts[b.id] || 0) - (cookCounts[a.id] || 0);
+      case 'cook-asc':
+        return (cookCounts[a.id] || 0) - (cookCounts[b.id] || 0);
       default:
         return 0;
     }
@@ -132,7 +149,8 @@ function hasActiveFilters() {
     filterState.cuisine !== '' ||
     filterState.protein !== '' ||
     filterState.mealType !== '' ||
-    filterState.favoritesOnly
+    filterState.favoritesOnly ||
+    filterState.cookCountMax !== ''
   );
 }
 
@@ -143,6 +161,7 @@ function resetFilters(container) {
     protein: '',
     mealType: '',
     favoritesOnly: false,
+    cookCountMax: '',
     sort: filterState.sort,  // preserve sort preference
   };
 
@@ -155,6 +174,9 @@ function resetFilters(container) {
 
   const proteinSelect = container.querySelector('#filter-protein');
   if (proteinSelect) proteinSelect.value = '';
+
+  const cookCountSelect = container.querySelector('#filter-cook-count');
+  if (cookCountSelect) cookCountSelect.value = '';
 
   // Reset meal type buttons
   container.querySelectorAll('[data-meal-type]').forEach((btn) => {
@@ -207,6 +229,14 @@ function buildFilterBarHTML() {
 
       <button class="favorite-btn ${filterState.favoritesOnly ? 'favorite--active' : ''}" id="filter-favorites" title="Show favorites only" style="font-size:1.4rem;">&#9829;</button>
 
+      <select id="filter-cook-count" title="Filter by cook count">
+        <option value="">All Cook Counts</option>
+        <option value="0"${filterState.cookCountMax === '0' ? ' selected' : ''}>Never Cooked</option>
+        <option value="3"${filterState.cookCountMax === '3' ? ' selected' : ''}>&lt; 3 times</option>
+        <option value="5"${filterState.cookCountMax === '5' ? ' selected' : ''}>&lt; 5 times</option>
+        <option value="10"${filterState.cookCountMax === '10' ? ' selected' : ''}>&lt; 10 times</option>
+      </select>
+
       <select id="filter-sort">
         <option value="name-asc"${filterState.sort === 'name-asc' ? ' selected' : ''}>Name A-Z</option>
         <option value="name-desc"${filterState.sort === 'name-desc' ? ' selected' : ''}>Name Z-A</option>
@@ -214,6 +244,8 @@ function buildFilterBarHTML() {
         <option value="cal-desc"${filterState.sort === 'cal-desc' ? ' selected' : ''}>Calories &#8595;</option>
         <option value="protein-asc"${filterState.sort === 'protein-asc' ? ' selected' : ''}>Protein &#8593;</option>
         <option value="protein-desc"${filterState.sort === 'protein-desc' ? ' selected' : ''}>Protein &#8595;</option>
+        <option value="cook-desc"${filterState.sort === 'cook-desc' ? ' selected' : ''}>Most Cooked</option>
+        <option value="cook-asc"${filterState.sort === 'cook-asc' ? ' selected' : ''}>Least Cooked</option>
       </select>
     </div>
 
@@ -230,6 +262,17 @@ function buildFilterBarHTML() {
 
 function buildRecipeCardHTML(recipe) {
   const isFav = store.isFavorite(recipe.id);
+  const cookCount = store.getCookCount(recipe.id);
+
+  let cookBadgeHTML = '';
+  if (cookCount > 0) {
+    let tierClass;
+    if (cookCount <= 2) tierClass = 'badge-cook-tier1';
+    else if (cookCount <= 5) tierClass = 'badge-cook-tier2';
+    else if (cookCount <= 10) tierClass = 'badge-cook-tier3';
+    else tierClass = 'badge-cook-tier4';
+    cookBadgeHTML = `<span class="badge badge-cook ${tierClass}" title="Cooked ${cookCount} time${cookCount !== 1 ? 's' : ''}">${cookCount}</span>`;
+  }
 
   return `
     <div class="recipe-card" data-recipe-id="${escapeHTML(recipe.id)}">
@@ -246,6 +289,7 @@ function buildRecipeCardHTML(recipe) {
         <span class="badge badge-protein">${recipe.protein}g P</span>
         <span class="badge badge-fiber">${recipe.fiber}g F</span>
       </div>
+      ${cookBadgeHTML}
     </div>
   `;
 }
@@ -589,6 +633,15 @@ function attachEvents(container) {
   if (proteinSelect) {
     proteinSelect.addEventListener('change', (e) => {
       filterState.protein = e.target.value;
+      renderGrid(container);
+    });
+  }
+
+  // Cook count filter select
+  const cookCountSelect = container.querySelector('#filter-cook-count');
+  if (cookCountSelect) {
+    cookCountSelect.addEventListener('change', (e) => {
+      filterState.cookCountMax = e.target.value;
       renderGrid(container);
     });
   }

@@ -496,10 +496,10 @@ function renderPreview(plan, container, onApply, onRegenerate) {
     const fibOk = dayFib >= targets.fiberMin && dayFib <= targets.fiberMax;
     const allGood = calOk && proOk && fibOk;
     const statusIcon = allGood ? ' &#10003;' : '';
-    const statusClass = allGood ? 'color: var(--color-success, #2a9d2a);' : 'color: var(--color-text);';
+    const statusClass = allGood ? 'color: var(--color-success, #4a9d6e);' : 'color: var(--color-text);';
 
     daysHtml += `
-      <div class="mb-1" style="padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border, #e9ecef);">
+      <div class="mb-1" style="padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border, #e2dfd8);">
         <strong>${dateLabel}</strong>
         ${slotsHtml}
         <div class="text-sm" style="font-weight: 600; margin-top: 0.25rem; ${statusClass}">

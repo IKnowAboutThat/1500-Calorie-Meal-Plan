@@ -339,6 +339,35 @@ export function getAllTags() {
 }
 
 // ============================================================
+// Cook Counts
+// ============================================================
+
+/**
+ * Get the full cook counts map: { [recipeId]: number }.
+ */
+export function getCookCounts() {
+  return getItem('mp_cookCounts', {});
+}
+
+/**
+ * Get the cook count for a single recipe.
+ */
+export function getCookCount(recipeId) {
+  const counts = getCookCounts();
+  return counts[recipeId] || 0;
+}
+
+/**
+ * Increment the cook count for a recipe by 1. Returns the new count.
+ */
+export function incrementCookCount(recipeId) {
+  const counts = getCookCounts();
+  counts[recipeId] = (counts[recipeId] || 0) + 1;
+  setItem('mp_cookCounts', counts);
+  return counts[recipeId];
+}
+
+// ============================================================
 // Week Templates
 // ============================================================
 
