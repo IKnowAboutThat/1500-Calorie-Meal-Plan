@@ -1,8 +1,9 @@
-"""Anthropic SDK integration for parsing raw recipe text into structured data."""
+"""Claude Agent SDK integration for parsing raw recipe text into structured data."""
 
 import json
 import re
-import anthropic
+import anyio
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
 SYSTEM_PROMPT = """You are a recipe parsing assistant. Given raw recipe text, extract structured data and return it as JSON.
 
@@ -43,7 +44,30 @@ Rules:
 - If no instructions are provided, return an empty array
 - Return ONLY the JSON object, no markdown fences or explanation"""
 
-MODEL = "claude-sonnet-4-20250514"
+
+async def _parse_recipe_async(text):
+    """Async implementation of recipe parsing using Claude Agent SDK."""
+    result_text = ""
+    async for message in query(
+        prompt=f"Parse this recipe:\n\n{text}",
+        options=ClaudeAgentOptions(
+            system_prompt=SYSTEM_PROMPT,
+            allowed_tools=[],
+            max_turns=1,
+        )
+    ):
+        if isinstance(message, ResultMessage):
+            result_text = message.result
+
+    if not result_text:
+        raise RuntimeError("No response from Claude agent")
+
+    # Strip markdown code fences if present
+    result_text = re.sub(r'^```(?:json)?\s*\n?', '', result_text, flags=re.MULTILINE)
+    result_text = re.sub(r'\n?```\s*$', '', result_text, flags=re.MULTILINE)
+    result_text = result_text.strip()
+
+    return json.loads(result_text)
 
 
 def parse_recipe_text(text):
@@ -55,22 +79,4 @@ def parse_recipe_text(text):
     Returns:
         dict with parsed recipe data
     """
-    client = anthropic.Anthropic()
-
-    message = client.messages.create(
-        model=MODEL,
-        max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {"role": "user", "content": f"Parse this recipe:\n\n{text}"}
-        ],
-    )
-
-    response_text = message.content[0].text
-
-    # Strip markdown code fences if present
-    response_text = re.sub(r'^```(?:json)?\s*\n?', '', response_text, flags=re.MULTILINE)
-    response_text = re.sub(r'\n?```\s*$', '', response_text, flags=re.MULTILINE)
-    response_text = response_text.strip()
-
-    return json.loads(response_text)
+    return anyio.run(_parse_recipe_async, text)
