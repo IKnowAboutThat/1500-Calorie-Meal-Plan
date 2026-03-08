@@ -319,11 +319,11 @@ def get_or_create_ingredient(name):
     """, (
         name,
         best_match.get('fdcId'),
-        macros.get('calories', 0),
-        macros.get('protein', 0),
-        macros.get('fat', 0),
-        macros.get('carbs', 0),
-        macros.get('fiber', 0),
+        max(macros.get('calories', 0), 0),
+        max(macros.get('protein', 0), 0),
+        max(macros.get('fat', 0), 0),
+        max(macros.get('carbs', 0), 0),
+        max(macros.get('fiber', 0), 0),
         json.dumps(micros),
         category,
     ))
