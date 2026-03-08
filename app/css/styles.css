@@ -1,33 +1,61 @@
 /* ============================================================
-   1500 Calorie Meal Plan - Complete Stylesheet
+   "Sage Garden" Theme — 1500 Calorie Meal Planner
+   A warm, premium visual system with glassmorphism, gradients,
+   spring animations, and delightful micro-interactions.
    ============================================================ */
 
 /* ------------------------------------------------------------
-   1. CSS Custom Properties
+   1. Design Tokens
    ------------------------------------------------------------ */
 :root {
-  --color-bg: #f8f9fa;
-  --color-surface: #ffffff;
-  --color-primary: #2d6a4f;
-  --color-primary-light: #52b788;
-  --color-primary-dark: #1b4332;
-  --color-accent: #e76f51;
-  --color-text: #212529;
-  --color-text-secondary: #6c757d;
-  --color-border: #dee2e6;
-  --color-success: #40916c;
-  --color-warning: #f4a261;
-  --color-danger: #e63946;
-  --color-macro-cal: #e76f51;
-  --color-macro-protein: #2d6a4f;
-  --color-macro-fiber: #457b9d;
-  --radius: 8px;
-  --radius-lg: 12px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
-  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --transition: 0.2s ease;
+  /* Color Palette */
+  --color-bg:              #f7f5f0;
+  --color-bg-subtle:       #efece6;
+  --color-surface:         rgba(255, 255, 255, 0.78);
+  --color-surface-solid:   #ffffff;
+  --color-primary:         #4a7c59;
+  --color-primary-light:   #6aab7b;
+  --color-primary-dark:    #2c4a3e;
+  --color-primary-glow:    rgba(74, 124, 89, 0.18);
+  --color-accent:          #c27044;
+  --color-accent-light:    #e8956a;
+  --color-accent-glow:     rgba(194, 112, 68, 0.18);
+  --color-text:            #1a1a2e;
+  --color-text-secondary:  #6b7280;
+  --color-border:          #e2dfd8;
+  --color-border-light:    #eeece7;
+  --color-success:         #4a9d6e;
+  --color-warning:         #d4a853;
+  --color-danger:          #c9473f;
+  --color-macro-cal:       #c27044;
+  --color-macro-protein:   #3d7c8c;
+  --color-macro-fiber:     #7c6fae;
+
+  /* Radius */
+  --radius:      10px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-full: 9999px;
+
+  /* Shadows — layered, warm-tinted */
+  --shadow-sm:  0 1px 3px rgba(42,42,42,0.05), 0 1px 2px rgba(42,42,42,0.03);
+  --shadow-md:  0 4px 16px rgba(42,42,42,0.07), 0 2px 4px rgba(42,42,42,0.03);
+  --shadow-lg:  0 12px 40px rgba(42,42,42,0.1), 0 4px 8px rgba(42,42,42,0.05);
+  --shadow-glow-primary: 0 4px 20px rgba(74,124,89,0.18);
+  --shadow-glow-accent:  0 4px 20px rgba(194,112,68,0.18);
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  /* Easing */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 0.68, 0, 1.71);
+
+  /* Transitions */
+  --transition:        0.2s var(--ease-out);
+  --transition-slow:   0.35s var(--ease-out);
+  --transition-bounce: 0.4s var(--ease-bounce);
 }
 
 /* ------------------------------------------------------------
@@ -44,7 +72,7 @@ body {
   background-color: var(--color-bg);
   font-family: var(--font-family);
   font-size: 1rem;
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -53,14 +81,17 @@ body {
 h1, h2, h3, h4, h5, h6 {
   margin-top: 0;
   line-height: 1.3;
+  letter-spacing: -0.3px;
 }
 
 a {
   color: var(--color-primary);
   text-decoration: none;
+  transition: color var(--transition);
 }
 
 a:hover {
+  color: var(--color-primary-dark);
   text-decoration: underline;
 }
 
@@ -70,44 +101,50 @@ img {
 }
 
 /* ------------------------------------------------------------
-   3. Header
+   3. Header — gradient with depth
    ------------------------------------------------------------ */
 .header,
 header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background-color: var(--color-primary-dark);
+  background: linear-gradient(135deg, #2c4a3e 0%, #3d6b52 50%, #4a7c59 100%);
   color: #ffffff;
   padding: 1rem 2rem;
+  box-shadow: 0 2px 20px rgba(44, 74, 62, 0.25);
 }
 
 .header h1,
 header h1 {
   font-size: 1.5rem;
   margin: 0;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.5px;
 }
 
 .header .subtitle,
-header .subtitle {
-  font-size: 0.875rem;
-  opacity: 0.8;
-  margin: 0;
+header .subtitle,
+header p {
+  font-size: 0.85rem;
+  opacity: 0.75;
+  margin: 0.15rem 0 0;
+  font-weight: 400;
+  letter-spacing: 0.2px;
 }
 
 /* ------------------------------------------------------------
-   4. Nav Tabs
+   4. Nav Tabs — pill-shaped with animated background
    ------------------------------------------------------------ */
 .nav-tabs {
   display: flex;
   overflow-x: auto;
-  gap: 4px;
-  background-color: var(--color-surface);
-  padding: 0.5rem 1rem;
+  gap: 6px;
+  background: var(--color-surface-solid);
+  padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--color-border);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 
 .nav-tabs::-webkit-scrollbar {
@@ -115,29 +152,34 @@ header .subtitle {
 }
 
 .nav-tab {
-  border-radius: 20px;
-  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  padding: 0.5rem 1.1rem;
   border: none;
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-family: var(--font-family);
+  font-weight: 500;
   background: transparent;
-  color: var(--color-text);
+  color: var(--color-text-secondary);
   white-space: nowrap;
-  transition: background-color var(--transition), color var(--transition);
+  transition: all var(--transition);
+  position: relative;
 }
 
 .nav-tab:hover {
-  background-color: #e9ecef;
+  background-color: var(--color-bg-subtle);
+  color: var(--color-text);
 }
 
 .nav-tab--active {
-  background-color: var(--color-primary);
+  background: var(--color-primary);
   color: #ffffff;
+  box-shadow: var(--shadow-glow-primary);
+  font-weight: 600;
 }
 
 .nav-tab--active:hover {
-  background-color: var(--color-primary-dark);
+  background: var(--color-primary-dark);
 }
 
 /* ------------------------------------------------------------
@@ -150,44 +192,70 @@ header .subtitle {
 }
 
 /* ------------------------------------------------------------
-   6. Cards
+   6. Cards — glassmorphism
    ------------------------------------------------------------ */
 .card {
-  background-color: var(--color-surface);
-  border-radius: var(--radius);
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.25rem;
   margin-bottom: 1rem;
+  transition: box-shadow var(--transition-slow);
 }
 
 /* ------------------------------------------------------------
-   7. Recipe Cards
+   7. Recipe Cards — elegant with hover lift
    ------------------------------------------------------------ */
 .recipe-card {
-  background-color: var(--color-surface);
-  border-radius: var(--radius);
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.25rem;
   margin-bottom: 1rem;
   cursor: pointer;
-  transition: transform var(--transition), box-shadow var(--transition);
+  transition: transform 0.3s var(--ease-bounce), box-shadow 0.3s var(--ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.recipe-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary-light), var(--color-primary));
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
 }
 
 .recipe-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
   box-shadow: var(--shadow-md);
+}
+
+.recipe-card:hover::before {
+  opacity: 1;
 }
 
 .recipe-card__name {
   margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
 .recipe-card__badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: 0.3rem;
   margin-bottom: 0.5rem;
 }
 
@@ -225,11 +293,23 @@ header .subtitle {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background-color: var(--color-surface);
-  border-radius: var(--radius);
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1rem;
+  animation: fadeInUp 0.35s var(--ease-out) both;
 }
+
+.planner-day:nth-child(1) { animation-delay: 0s; }
+.planner-day:nth-child(2) { animation-delay: 0.04s; }
+.planner-day:nth-child(3) { animation-delay: 0.08s; }
+.planner-day:nth-child(4) { animation-delay: 0.12s; }
+.planner-day:nth-child(5) { animation-delay: 0.16s; }
+.planner-day:nth-child(6) { animation-delay: 0.2s; }
+.planner-day:nth-child(7) { animation-delay: 0.24s; }
 
 .planner-day__label {
   min-width: 100px;
@@ -248,10 +328,11 @@ header .subtitle {
 .planner-slot {
   min-width: 200px;
   flex: 1;
-  background-color: var(--color-surface);
+  background: var(--color-surface-solid);
   border-radius: var(--radius);
   padding: 0.75rem;
   box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition);
 }
 
 .planner-slot--empty {
@@ -265,12 +346,13 @@ header .subtitle {
   cursor: pointer;
   color: var(--color-text-secondary);
   font-size: 1.5rem;
-  transition: border-color var(--transition), color var(--transition);
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
 }
 
 .planner-slot--empty:hover {
   border-color: var(--color-primary-light);
   color: var(--color-primary);
+  background: var(--color-primary-glow);
 }
 
 .planner-slot--filled {
@@ -278,12 +360,14 @@ header .subtitle {
 }
 
 .planner-slot__name[data-action="view-recipe"] {
-  transition: color 0.15s;
+  transition: color 0.2s var(--ease-out);
+  cursor: pointer;
 }
 
 .planner-slot__name[data-action="view-recipe"]:hover {
   color: var(--color-primary);
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .planner-day__macros {
@@ -293,12 +377,20 @@ header .subtitle {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
   padding-top: 0.5rem;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-light);
   margin-top: 0.25rem;
 }
 
+/* Planner toolbar */
+.planner-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  justify-content: flex-end;
+}
+
 /* ------------------------------------------------------------
-   10. Macro Progress Bars
+   10. Macro Progress Bars — gradient fills with glow
    ------------------------------------------------------------ */
 .macro-bar-container {
   margin-bottom: 0.5rem;
@@ -308,33 +400,39 @@ header .subtitle {
   display: flex;
   justify-content: space-between;
   font-size: 0.8rem;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
   color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 .macro-bar {
   height: 8px;
-  border-radius: 4px;
-  background-color: #e9ecef;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-subtle);
   overflow: hidden;
+  position: relative;
 }
 
 .macro-bar__fill {
   height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  border-radius: var(--radius-full);
+  transition: width 0.5s var(--ease-out);
+  position: relative;
 }
 
 .macro-bar--cal .macro-bar__fill {
-  background-color: var(--color-macro-cal);
+  background: linear-gradient(90deg, #c27044, #e8956a);
+  box-shadow: 0 0 8px rgba(194, 112, 68, 0.3);
 }
 
 .macro-bar--protein .macro-bar__fill {
-  background-color: var(--color-macro-protein);
+  background: linear-gradient(90deg, #3d7c8c, #5ca8b8);
+  box-shadow: 0 0 8px rgba(61, 124, 140, 0.3);
 }
 
 .macro-bar--fiber .macro-bar__fill {
-  background-color: var(--color-macro-fiber);
+  background: linear-gradient(90deg, #7c6fae, #a498d1);
+  box-shadow: 0 0 8px rgba(124, 111, 174, 0.3);
 }
 
 /* ------------------------------------------------------------
@@ -345,25 +443,27 @@ header .subtitle {
 }
 
 .shopping-category {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .shopping-category h3 {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--color-border);
   margin: 0 0 0.5rem;
   color: var(--color-primary-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .shopping-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #f0f0f0;
-  transition: opacity var(--transition);
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--color-border-light);
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
 }
 
 .shopping-item__checkbox {
@@ -372,24 +472,33 @@ header .subtitle {
 
 .shopping-item__name {
   flex: 1;
+  transition: color var(--transition);
 }
 
 .shopping-item__quantity {
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .shopping-item--checked {
-  opacity: 0.5;
+  opacity: 0.4;
+}
+
+.shopping-item--checked .shopping-item__name {
   text-decoration: line-through;
+  color: var(--color-text-secondary);
 }
 
 /* ------------------------------------------------------------
    12. Pantry Items
    ------------------------------------------------------------ */
 .pantry-item {
-  background-color: var(--color-surface);
+  background: var(--color-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   padding: 0.75rem 1rem;
@@ -398,6 +507,11 @@ header .subtitle {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.pantry-item:hover {
+  box-shadow: var(--shadow-md);
 }
 
 .pantry-item__name {
@@ -408,28 +522,36 @@ header .subtitle {
 
 .pantry-item__quantity {
   width: 80px;
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-family: var(--font-family);
   text-align: center;
+  background: var(--color-surface-solid);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.pantry-item__quantity:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
 }
 
 .pantry-item__unit {
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   color: var(--color-text-secondary);
   min-width: 40px;
 }
 
 .pantry-item__badge {
   display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 12px;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-full);
   font-size: 0.7rem;
   font-weight: 600;
-  background-color: var(--color-primary-light);
+  background: linear-gradient(135deg, rgba(106, 171, 123, 0.15), rgba(106, 171, 123, 0.25));
   color: var(--color-primary-dark);
+  border: 1px solid rgba(74, 124, 89, 0.15);
 }
 
 .pantry-item__actions {
@@ -452,11 +574,33 @@ header .subtitle {
 }
 
 .stat-card {
-  background-color: var(--color-surface);
-  border-radius: var(--radius);
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.25rem;
   text-align: center;
+  transition: transform 0.3s var(--ease-bounce), box-shadow var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary-light), var(--color-primary));
+  opacity: 0.5;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card__icon {
@@ -466,20 +610,29 @@ header .subtitle {
 
 .stat-card__value {
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.2;
-  color: var(--color-primary-dark);
+  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .stat-card__label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--color-text-secondary);
-  margin-top: 0.125rem;
+  margin-top: 0.2rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .dashboard-chart {
-  background-color: var(--color-surface);
-  border-radius: var(--radius);
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.25rem;
   margin-bottom: 1rem;
@@ -491,81 +644,100 @@ header .subtitle {
 }
 
 .dashboard-day {
-  background-color: var(--color-surface);
-  border-radius: var(--radius);
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.25rem;
   margin-bottom: 1rem;
+  transition: box-shadow var(--transition);
+}
+
+.dashboard-day:hover {
+  box-shadow: var(--shadow-md);
 }
 
 /* ------------------------------------------------------------
-   14. Buttons
+   14. Buttons — refined with gradients
    ------------------------------------------------------------ */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 1.1rem;
   border-radius: var(--radius);
   border: none;
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-family: var(--font-family);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.4;
-  transition: background-color var(--transition), transform var(--transition), box-shadow var(--transition);
+  transition: all var(--transition);
   text-decoration: none;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn:active {
-  transform: scale(0.97);
+  transform: scale(0.96);
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: #ffffff;
+  box-shadow: 0 2px 8px rgba(74, 124, 89, 0.25);
 }
 
 .btn-primary:hover {
-  background-color: var(--color-primary-dark);
+  box-shadow: var(--shadow-glow-primary);
+  filter: brightness(1.08);
 }
 
 .btn-secondary {
-  background-color: #e9ecef;
+  background: var(--color-bg-subtle);
   color: var(--color-text);
+  border: 1px solid var(--color-border);
 }
 
 .btn-secondary:hover {
-  background-color: #dee2e6;
+  background: var(--color-border);
+  border-color: transparent;
 }
 
 .btn-danger {
-  background-color: var(--color-danger);
+  background: linear-gradient(135deg, var(--color-danger), #d95f58);
   color: #ffffff;
+  box-shadow: 0 2px 8px rgba(201, 71, 63, 0.25);
 }
 
 .btn-danger:hover {
-  background-color: #c5303c;
+  box-shadow: 0 4px 16px rgba(201, 71, 63, 0.3);
+  filter: brightness(1.08);
 }
 
 .btn-success {
-  background-color: var(--color-success);
+  background: linear-gradient(135deg, var(--color-success), #5cb882);
   color: #ffffff;
+  box-shadow: 0 2px 8px rgba(74, 157, 110, 0.25);
 }
 
 .btn-success:hover {
-  background-color: #357a5b;
+  box-shadow: 0 4px 16px rgba(74, 157, 110, 0.3);
+  filter: brightness(1.08);
 }
 
 .btn-sm {
-  padding: 0.25rem 0.625rem;
-  font-size: 0.8rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
 }
 
 .btn-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -576,16 +748,17 @@ header .subtitle {
   cursor: pointer;
   font-size: 1.1rem;
   color: var(--color-text-secondary);
-  transition: background-color var(--transition), color var(--transition);
+  transition: all var(--transition);
 }
 
 .btn-icon:hover {
-  background-color: #e9ecef;
+  background-color: var(--color-bg-subtle);
   color: var(--color-text);
+  transform: scale(1.08);
 }
 
 /* ------------------------------------------------------------
-   15. Forms
+   15. Forms — warm inputs with animated focus
    ------------------------------------------------------------ */
 .form-group {
   margin-bottom: 1rem;
@@ -595,22 +768,23 @@ header .subtitle {
 label {
   display: block;
   font-weight: 600;
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--color-text);
 }
 
 input,
 select,
 textarea {
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
+  padding: 0.55rem 0.85rem;
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius);
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-family: var(--font-family);
   color: var(--color-text);
-  background-color: var(--color-surface);
-  transition: border-color var(--transition), box-shadow var(--transition);
+  background-color: var(--color-surface-solid);
+  transition: border-color 0.25s var(--ease-out), box-shadow 0.25s var(--ease-out);
 }
 
 input:focus,
@@ -618,7 +792,7 @@ select:focus,
 textarea:focus {
   border-color: var(--color-primary);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.1);
+  box-shadow: 0 0 0 4px var(--color-primary-glow);
 }
 
 input[type="number"] {
@@ -638,75 +812,157 @@ textarea {
 select {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
-  padding-right: 2rem;
+  background-position: right 0.85rem center;
+  padding-right: 2.2rem;
 }
 
 /* ------------------------------------------------------------
-   16. Badges
+   16. Badges — soft pill design with subtle gradients
    ------------------------------------------------------------ */
 .badge {
   display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
   font-weight: 600;
   line-height: 1.5;
+  letter-spacing: 0.2px;
 }
 
 .badge-cuisine {
-  background-color: var(--color-primary-light);
+  background: linear-gradient(135deg, rgba(106,171,123,0.12), rgba(106,171,123,0.22));
   color: var(--color-primary-dark);
+  border: 1px solid rgba(74, 124, 89, 0.15);
 }
 
 .badge-cal {
-  background-color: var(--color-macro-cal);
-  color: #ffffff;
+  background: rgba(194, 112, 68, 0.12);
+  color: var(--color-macro-cal);
+  border: 1px solid rgba(194, 112, 68, 0.2);
+  font-weight: 700;
 }
 
 .badge-protein {
-  background-color: var(--color-macro-protein);
-  color: #ffffff;
+  background: rgba(61, 124, 140, 0.12);
+  color: var(--color-macro-protein);
+  border: 1px solid rgba(61, 124, 140, 0.2);
+  font-weight: 700;
 }
 
 .badge-fiber {
-  background-color: var(--color-macro-fiber);
-  color: #ffffff;
+  background: rgba(124, 111, 174, 0.12);
+  color: var(--color-macro-fiber);
+  border: 1px solid rgba(124, 111, 174, 0.2);
+  font-weight: 700;
 }
 
 .badge-tag {
-  background-color: #e9ecef;
+  background: var(--color-bg-subtle);
   color: var(--color-text);
+  border: 1px solid var(--color-border);
 }
 
 .badge-phase-standard {
-  background-color: #d0ecf5;
+  background: linear-gradient(135deg, #ddf0f7, #c5e5ef);
   color: #1a6985;
+  border: 1px solid rgba(26, 105, 133, 0.15);
 }
 
 .badge-phase-luteal {
-  background-color: #f3d5e0;
+  background: linear-gradient(135deg, #f7dbe7, #eec5d5);
   color: #8b3a62;
+  border: 1px solid rgba(139, 58, 98, 0.15);
 }
 
 /* ------------------------------------------------------------
-   17. Modal
+   16b. Cook Count Badge (recipe cards)
+   ------------------------------------------------------------ */
+.badge-cook {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.2px;
+  transition: transform 0.3s var(--ease-bounce), box-shadow var(--transition);
+}
+
+.recipe-card:hover .badge-cook {
+  transform: scale(1.1);
+}
+
+/* Tier 1: 1–2 cooks — muted stone */
+.badge-cook-tier1 {
+  background: rgba(107, 114, 128, 0.12);
+  color: #6b7280;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+/* Tier 2: 3–5 cooks — sage green */
+.badge-cook-tier2 {
+  background: rgba(74, 124, 89, 0.15);
+  color: var(--color-primary-dark);
+  border: 1px solid rgba(74, 124, 89, 0.2);
+}
+
+/* Tier 3: 6–10 cooks — warm gold */
+.badge-cook-tier3 {
+  background: rgba(212, 168, 83, 0.18);
+  color: #8b6914;
+  border: 1px solid rgba(212, 168, 83, 0.25);
+  box-shadow: 0 0 6px rgba(212, 168, 83, 0.15);
+}
+
+/* Tier 4: 11+ cooks — rich terracotta */
+.badge-cook-tier4 {
+  background: rgba(194, 112, 68, 0.2);
+  color: #8b4a24;
+  border: 1px solid rgba(194, 112, 68, 0.25);
+  box-shadow: 0 0 8px rgba(194, 112, 68, 0.2);
+}
+
+/* ------------------------------------------------------------
+   16c. Cooked indicator on planner slots
+   ------------------------------------------------------------ */
+.planner-slot--cooked {
+  border-left-color: var(--color-success);
+  background: linear-gradient(135deg, rgba(74, 157, 110, 0.04), rgba(74, 157, 110, 0.08));
+}
+
+.planner-slot__cooked-btn--active {
+  color: var(--color-success) !important;
+  background: rgba(74, 157, 110, 0.12) !important;
+  border-radius: var(--radius) !important;
+}
+
+/* ------------------------------------------------------------
+   17. Modal — frosted glass with scale entrance
    ------------------------------------------------------------ */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(26, 26, 46, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.15s ease;
+  animation: fadeIn 0.2s var(--ease-out);
 }
 
 .modal-content {
-  background: var(--color-surface);
+  background: var(--color-surface-solid);
   border-radius: var(--radius-lg);
   max-width: 700px;
   width: 90%;
@@ -715,7 +971,7 @@ select {
   padding: 2rem;
   position: relative;
   box-shadow: var(--shadow-lg);
-  animation: fadeIn 0.2s ease;
+  animation: scaleIn 0.3s var(--ease-bounce);
 }
 
 .modal-content::-webkit-scrollbar {
@@ -727,30 +983,37 @@ select {
 }
 
 .modal-content::-webkit-scrollbar-thumb {
-  background-color: #c0c0c0;
+  background-color: var(--color-border);
   border-radius: 3px;
 }
 
 .modal-content::-webkit-scrollbar-thumb:hover {
-  background-color: #a0a0a0;
+  background-color: var(--color-text-secondary);
 }
 
 .modal-close {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: none;
+  background: var(--color-bg-subtle);
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   cursor: pointer;
   color: var(--color-text-secondary);
   line-height: 1;
-  padding: 0.25rem;
-  transition: color var(--transition);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
 }
 
 .modal-close:hover {
+  background: var(--color-border);
   color: var(--color-text);
+  transform: rotate(90deg);
 }
 
 .hidden {
@@ -758,7 +1021,7 @@ select {
 }
 
 /* ------------------------------------------------------------
-   18. Toast Notifications
+   18. Toast Notifications — polished pills
    ------------------------------------------------------------ */
 .toast-container {
   position: fixed;
@@ -772,27 +1035,30 @@ select {
 }
 
 .toast {
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1.2rem;
   border-radius: var(--radius);
   color: #ffffff;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-family: var(--font-family);
-  animation: slideIn 0.3s ease;
+  font-weight: 500;
+  animation: slideInRight 0.35s var(--ease-bounce);
   pointer-events: auto;
   box-shadow: var(--shadow-md);
   max-width: 360px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .toast-success {
-  background-color: var(--color-success);
+  background: linear-gradient(135deg, var(--color-success), #5cb882);
 }
 
 .toast-error {
-  background-color: var(--color-danger);
+  background: linear-gradient(135deg, var(--color-danger), #d95f58);
 }
 
 .toast-info {
-  background-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
 }
 
 /* ------------------------------------------------------------
@@ -825,15 +1091,17 @@ select {
 
 .recipe-detail__header h2 {
   margin: 0 0 0.5rem;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.4px;
 }
 
 .recipe-detail__macros {
   display: flex;
   gap: 2rem;
   padding: 1rem 0;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-light);
+  border-bottom: 1px solid var(--color-border-light);
   margin-bottom: 1rem;
 }
 
@@ -843,15 +1111,16 @@ select {
 
 .recipe-detail__macro-value {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.2;
 }
 
 .recipe-detail__macro-label {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
 .recipe-detail__ingredients {
@@ -860,7 +1129,7 @@ select {
 
 .recipe-detail__ingredients h3 {
   margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .recipe-detail__ingredients table {
@@ -870,18 +1139,23 @@ select {
 
 .recipe-detail__ingredients th {
   text-align: left;
-  padding: 0.5rem;
+  padding: 0.55rem 0.5rem;
   border-bottom: 2px solid var(--color-border);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
 .recipe-detail__ingredients td {
-  padding: 0.5rem;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 0.9rem;
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: 0.88rem;
+}
+
+.recipe-detail__ingredients tr:hover {
+  background: var(--color-bg);
 }
 
 /* ------------------------------------------------------------
@@ -889,20 +1163,22 @@ select {
    ------------------------------------------------------------ */
 .phase-badge {
   display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
   font-weight: 600;
 }
 
 .phase-badge--standard {
-  background-color: #d0ecf5;
+  background: linear-gradient(135deg, #ddf0f7, #c5e5ef);
   color: #1a6985;
+  border: 1px solid rgba(26, 105, 133, 0.15);
 }
 
 .phase-badge--luteal {
-  background-color: #f3d5e0;
+  background: linear-gradient(135deg, #f7dbe7, #eec5d5);
   color: #8b3a62;
+  border: 1px solid rgba(139, 58, 98, 0.15);
 }
 
 /* ------------------------------------------------------------
@@ -912,7 +1188,7 @@ select {
   text-align: center;
   padding: 3rem 1rem;
   color: var(--color-text-secondary);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .empty-state p {
@@ -922,64 +1198,20 @@ select {
 /* ------------------------------------------------------------
    23. Utility Classes
    ------------------------------------------------------------ */
-.flex {
-  display: flex;
-}
-
-.flex-between {
-  display: flex;
-  justify-content: space-between;
-}
-
-.flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.flex-wrap {
-  flex-wrap: wrap;
-}
-
-.gap-1 {
-  gap: 0.5rem;
-}
-
-.gap-2 {
-  gap: 1rem;
-}
-
-.mt-1 {
-  margin-top: 0.5rem;
-}
-
-.mt-2 {
-  margin-top: 1rem;
-}
-
-.mb-1 {
-  margin-bottom: 0.5rem;
-}
-
-.mb-2 {
-  margin-bottom: 1rem;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.text-sm {
-  font-size: 0.875rem;
-}
-
-.text-secondary {
-  color: var(--color-text-secondary);
-}
-
-.fw-bold {
-  font-weight: 700;
-}
+.flex { display: flex; }
+.flex-between { display: flex; justify-content: space-between; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-1 { gap: 0.5rem; }
+.gap-2 { gap: 1rem; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.text-center { text-align: center; }
+.text-sm { font-size: 0.85rem; }
+.text-secondary { color: var(--color-text-secondary); }
+.fw-bold { font-weight: 700; }
 
 /* ------------------------------------------------------------
    24. Favorite Heart Button
@@ -989,18 +1221,23 @@ select {
   border: none;
   cursor: pointer;
   font-size: 1.25rem;
-  color: #ccc;
-  transition: color var(--transition), transform var(--transition);
+  color: var(--color-border);
+  transition: color var(--transition), transform 0.3s var(--ease-bounce);
   padding: 0.25rem;
   line-height: 1;
 }
 
 .favorite-btn:hover {
-  transform: scale(1.1);
+  transform: scale(1.2);
+  color: var(--color-accent-light);
 }
 
 .favorite-btn.favorite--active {
   color: var(--color-accent);
+}
+
+.favorite-btn.favorite--active:hover {
+  color: var(--color-accent-light);
 }
 
 /* ------------------------------------------------------------
@@ -1016,17 +1253,21 @@ select {
 
 .week-nav__label {
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0;
   white-space: nowrap;
+  letter-spacing: -0.3px;
 }
 
 /* ------------------------------------------------------------
    26. Auto-Plan Panel
    ------------------------------------------------------------ */
 .auto-plan {
-  background-color: var(--color-surface);
-  border-radius: var(--radius);
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   padding: 1.25rem;
   margin-bottom: 1rem;
@@ -1034,7 +1275,7 @@ select {
 
 .auto-plan h3 {
   margin: 0 0 1rem;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .auto-plan__options {
@@ -1048,7 +1289,7 @@ select {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .auto-plan__generate {
@@ -1059,7 +1300,10 @@ select {
    27. Template Cards
    ------------------------------------------------------------ */
 .template-card {
-  background-color: var(--color-surface);
+  background: var(--color-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   padding: 1.25rem;
@@ -1069,6 +1313,12 @@ select {
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.template-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .template-card__info {
@@ -1102,31 +1352,34 @@ select {
 }
 
 .scale-controls__label {
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--color-text-secondary);
 }
 
 .scale-controls .scale-preset {
-  padding: 0.2rem 0.6rem;
-  border-radius: 20px;
-  border: 1px solid var(--color-border);
+  padding: 0.22rem 0.65rem;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--color-border);
   background: transparent;
   cursor: pointer;
   font-size: 0.75rem;
   font-family: var(--font-family);
+  font-weight: 500;
   color: var(--color-text);
-  transition: background-color var(--transition), border-color var(--transition);
+  transition: all var(--transition);
 }
 
 .scale-controls .scale-preset:hover {
-  background-color: #e9ecef;
+  background: var(--color-bg-subtle);
+  border-color: var(--color-primary-light);
 }
 
 .scale-controls .scale-preset--active {
-  background-color: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: #ffffff;
   border-color: var(--color-primary);
+  box-shadow: 0 2px 6px rgba(74, 124, 89, 0.25);
 }
 
 /* ------------------------------------------------------------
@@ -1134,9 +1387,10 @@ select {
    ------------------------------------------------------------ */
 input[type="checkbox"] {
   accent-color: var(--color-primary);
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   cursor: pointer;
+  border-radius: 4px;
 }
 
 /* ------------------------------------------------------------
@@ -1149,9 +1403,9 @@ input[type="checkbox"] {
 
 .data-table th {
   text-align: left;
-  padding: 0.5rem;
+  padding: 0.55rem 0.5rem;
   border-bottom: 2px solid var(--color-border);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--color-text-secondary);
@@ -1159,41 +1413,58 @@ input[type="checkbox"] {
 }
 
 .data-table td {
-  padding: 0.5rem;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 0.9rem;
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: 0.88rem;
 }
 
 .data-table tr:hover {
-  background-color: #f8f9fa;
+  background-color: var(--color-bg);
 }
 
 /* ------------------------------------------------------------
    31. Animations
    ------------------------------------------------------------ */
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-primary-glow); }
+  50% { box-shadow: 0 0 0 8px transparent; }
+}
+
+@keyframes progressFill {
+  from { width: 0; }
 }
 
 .page-transition {
-  animation: fadeIn 0.2s ease;
+  animation: fadeInUp 0.3s var(--ease-out);
 }
+
+/* Staggered list items */
+.recipe-card { animation: fadeInUp 0.35s var(--ease-out) both; }
 
 /* ------------------------------------------------------------
    32. Planner Macro Status Indicators
@@ -1202,21 +1473,25 @@ input[type="checkbox"] {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   margin-right: 0.25rem;
   vertical-align: middle;
+  transition: background-color var(--transition);
 }
 
 .macro-status--good {
   background-color: var(--color-success);
+  box-shadow: 0 0 6px rgba(74, 157, 110, 0.4);
 }
 
 .macro-status--warn {
   background-color: var(--color-warning);
+  box-shadow: 0 0 6px rgba(212, 168, 83, 0.4);
 }
 
 .macro-status--bad {
   background-color: var(--color-danger);
+  box-shadow: 0 0 6px rgba(201, 71, 63, 0.4);
 }
 
 /* ------------------------------------------------------------
@@ -1242,7 +1517,7 @@ input[type="checkbox"] {
 
   .planner-day__macros {
     border-top: none;
-    border-left: 1px solid var(--color-border);
+    border-left: 1px solid var(--color-border-light);
     padding-top: 0;
     padding-left: 0.75rem;
     margin-top: 0;
@@ -1273,7 +1548,7 @@ input[type="checkbox"] {
   }
 
   .nav-tabs {
-    padding: 0.5rem 2rem;
+    padding: 0.6rem 2rem;
   }
 
   .modal-content {
@@ -1321,6 +1596,9 @@ input[type="checkbox"] {
     box-shadow: none;
     border: 1px solid #ccc;
     break-inside: avoid;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: #ffffff;
   }
 
   .recipe-card:hover {
@@ -1342,10 +1620,42 @@ input[type="checkbox"] {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #ccc;
-  border-radius: 4px;
+  background-color: var(--color-border);
+  border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #aaa;
+  background-color: var(--color-text-secondary);
+}
+
+/* ------------------------------------------------------------
+   37. Spinner
+   ------------------------------------------------------------ */
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ------------------------------------------------------------
+   38. Tag Tree
+   ------------------------------------------------------------ */
+.tag-tree-item:hover {
+  background: var(--color-primary-glow);
+}
+
+.tag-tree-name:hover {
+  text-decoration: underline;
+  color: var(--color-primary);
+}
+
+.btn-icon:hover {
+  color: var(--color-primary) !important;
 }

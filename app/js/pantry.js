@@ -5,7 +5,8 @@
  * and clear-all functionality. Items are persisted via the store module.
  */
 
-import { recipes, ingredientCategories } from './data/recipes.js';
+import { ingredientCategories } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // Dynamic import to avoid circular deps with app.js
@@ -42,7 +43,7 @@ function debounce(fn, delay) {
  */
 function getAllIngredientNames() {
   const nameSet = new Set();
-  for (const recipe of recipes) {
+  for (const recipe of getRecipes()) {
     for (const ing of recipe.ingredients) {
       nameSet.add(ing.name);
     }
@@ -120,7 +121,7 @@ function showUndoToast(message, timeoutMs = 5000) {
 
     const undoBtn = document.createElement('button');
     undoBtn.textContent = 'Undo';
-    undoBtn.style.cssText = 'background: none; border: 1px solid currentColor; color: inherit; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; white-space: nowrap;';
+    undoBtn.style.cssText = 'background: none; border: 1px solid currentColor; color: inherit; padding: 0.2rem 0.5rem; border-radius: var(--radius-full); cursor: pointer; font-size: 0.85rem; white-space: nowrap;';
 
     toast.appendChild(msgSpan);
     toast.appendChild(undoBtn);
@@ -219,7 +220,7 @@ function buildAddItemForm() {
  */
 function buildPantryItemHTML(item) {
   const alwaysStockedBadge = item.alwaysStocked
-    ? `<span class="badge badge-tag" style="background: var(--color-primary-light); color: white;" data-always-stocked>Always Stocked</span>`
+    ? `<span class="badge badge-tag" style="background: var(--color-primary); color: #ffffff;" data-always-stocked>Always Stocked</span>`
     : '';
 
   return `
@@ -577,7 +578,7 @@ async function handleDeleteItem(id) {
     ? currentContainer.querySelector(`.pantry-item[data-item-id="${CSS.escape(id)}"]`)
     : null;
   if (itemEl) {
-    itemEl.style.transition = 'opacity 0.2s ease, max-height 0.2s ease';
+    itemEl.style.transition = 'opacity var(--transition), max-height var(--transition)';
     itemEl.style.opacity = '0';
     setTimeout(() => {
       if (itemEl.parentNode) {

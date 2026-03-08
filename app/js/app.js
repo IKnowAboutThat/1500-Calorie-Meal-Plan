@@ -5,14 +5,15 @@
  * ISO-week utilities, and global state access.
  */
 
-import { recipes, mealPlan, adrenalCocktail } from './data/recipes.js';
+import { adrenalCocktail } from './data/recipes.js';
 import * as store from './store.js';
+import { loadRecipes, getRecipes } from './recipe-cache.js';
 
 // ---------------------------------------------------------------------------
 // 1. Router
 // ---------------------------------------------------------------------------
 
-const VALID_PAGES = ['recipes', 'planner', 'shopping-list', 'pantry', 'dashboard', 'settings'];
+const VALID_PAGES = ['recipes', 'planner', 'shopping-list', 'pantry', 'dashboard', 'settings', 'add-recipe', 'tags'];
 const DEFAULT_PAGE = 'recipes';
 
 /**
@@ -55,6 +56,16 @@ async function loadPage(page, container) {
       case 'settings': {
         const { renderSettings } = await import('./settings.js');
         renderSettings(container);
+        break;
+      }
+      case 'add-recipe': {
+        const { renderAddRecipe } = await import('./add-recipe.js');
+        renderAddRecipe(container);
+        break;
+      }
+      case 'tags': {
+        const { renderTagManager } = await import('./tag-manager.js');
+        renderTagManager(container);
         break;
       }
       default: {
@@ -331,18 +342,21 @@ export function formatDate(date) {
  * @returns {{ recipes: object[], mealPlan: object, adrenalCocktail: object }}
  */
 export function getAppState() {
-  return { recipes, mealPlan, adrenalCocktail };
+  return { recipes: getRecipes(), adrenalCocktail };
 }
 
 // ---------------------------------------------------------------------------
 // 6. Initialisation
 // ---------------------------------------------------------------------------
 
-document.addEventListener('DOMContentLoaded', () => {
-  initRouter();
+document.addEventListener('DOMContentLoaded', async () => {
   initModal();
   initKeyboardNav();
   initFirstRun();
+
+  // Load recipes from API before initial navigation
+  await loadRecipes();
+  initRouter();
 });
 
 /**

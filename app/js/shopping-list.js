@@ -8,7 +8,8 @@
  * Exports a single render function consumed by the app router.
  */
 
-import { recipes, ingredientCategories } from './data/recipes.js';
+import { ingredientCategories } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,7 @@ const CATEGORY_ORDER = [
 // ---------------------------------------------------------------------------
 
 const recipesById = new Map();
-for (const r of recipes) {
+for (const r of getRecipes()) {
   recipesById.set(r.id, r);
 }
 
@@ -214,7 +215,7 @@ function buildDaySelector() {
   }).join('');
 
   return `
-    <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8f9fa; border-radius: var(--radius);">
+    <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--color-bg-subtle, #efece6); border-radius: var(--radius);">
       <div class="flex flex-wrap gap-1">
         ${checkboxes}
       </div>

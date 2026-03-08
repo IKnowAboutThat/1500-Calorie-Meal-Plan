@@ -1,2 +1,5 @@
 .DS_Store
 node_modules/
+.worktrees/
+data/recipes.db
+__pycache__/

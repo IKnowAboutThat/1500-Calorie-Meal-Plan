@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(file:*)",
+      "Bash(python3:*)",
+      "Bash(textutil:*)",
+      "Bash(node -c:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(tailscale status:*)",
+      "Bash(open:*)",
+      "Bash(/Applications/Tailscale.app/Contents/MacOS/Tailscale status:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

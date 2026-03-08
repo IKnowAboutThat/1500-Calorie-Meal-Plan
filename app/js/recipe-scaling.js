@@ -6,13 +6,13 @@
  * recipe-library, meal-planner, and integration modules.
  */
 
-import { recipes } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 
 // ============================================================
 // Recipe lookup map
 // ============================================================
 
-const recipeMap = new Map(recipes.map(r => [r.id, r]));
+const recipeMap = new Map(getRecipes().map(r => [r.id, r]));
 
 // ============================================================
 // Core scaling
@@ -118,7 +118,7 @@ export function renderScaledIngredientTable(recipe, scaleFactor) {
 
   // Inline style fallback for the scaled-row highlight
   const inlineStyle = isScaled
-    ? `<style>.scaled-row { background-color: rgba(45,106,79,0.05); }</style>\n`
+    ? `<style>.scaled-row { background-color: rgba(74,124,89,0.06); }</style>\n`
     : '';
 
   return `${inlineStyle}<table class="data-table scaled-table">

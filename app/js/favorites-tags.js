@@ -93,7 +93,7 @@ export function renderTagList(recipeId) {
   });
 
   html += `<input type="text" class="tag-input" data-action="add-tag" data-recipe-id="${recipeId}"
-    placeholder="Add tag..." style="width: 100px; padding: 2px 6px; font-size: 0.75rem; border: 1px solid var(--color-border); border-radius: 12px;">`;
+    placeholder="Add tag..." style="width: 100px; padding: 2px 10px; font-size: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-full);">`;
 
   html += '</div>';
   return html;

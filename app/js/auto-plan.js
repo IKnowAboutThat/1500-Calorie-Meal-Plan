@@ -11,7 +11,8 @@
  *   generateWeekPlan(weekId, options)
  */
 
-import { recipes, adrenalCocktail } from './data/recipes.js';
+import { adrenalCocktail } from './data/recipes.js';
+import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
 // ---------------------------------------------------------------------------
@@ -115,7 +116,7 @@ function getPhaseForDate(date) {
 // ---------------------------------------------------------------------------
 
 const recipesById = new Map();
-for (const r of recipes) {
+for (const r of getRecipes()) {
   recipesById.set(r.id, r);
 }
 
@@ -223,8 +224,8 @@ export function generateWeekPlan(weekId, options = {}) {
   }
 
   // Separate recipes by type
-  const mealRecipes = recipes.filter(r => r.mealType === 'meal');
-  const snackRecipes = recipes.filter(r => r.mealType === 'snack');
+  const mealRecipes = getRecipes().filter(r => r.mealType === 'meal');
+  const snackRecipes = getRecipes().filter(r => r.mealType === 'snack');
 
   // Track what has been used this week for variety
   const weekRecipeIds = new Set();
@@ -496,10 +497,10 @@ function renderPreview(plan, container, onApply, onRegenerate) {
     const fibOk = dayFib >= targets.fiberMin && dayFib <= targets.fiberMax;
     const allGood = calOk && proOk && fibOk;
     const statusIcon = allGood ? ' &#10003;' : '';
-    const statusClass = allGood ? 'color: var(--color-success, #2a9d2a);' : 'color: var(--color-text);';
+    const statusClass = allGood ? 'color: var(--color-success, #4a9d6e);' : 'color: var(--color-text);';
 
     daysHtml += `
-      <div class="mb-1" style="padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border, #e9ecef);">
+      <div class="mb-1" style="padding-bottom: 0.75rem; border-bottom: 1px solid var(--color-border, #e2dfd8);">
         <strong>${dateLabel}</strong>
         ${slotsHtml}
         <div class="text-sm" style="font-weight: 600; margin-top: 0.25rem; ${statusClass}">
