@@ -74,6 +74,56 @@ async def _parse_recipe_async(text):
     return json.loads(result_text)
 
 
+async def _parse_recipe_image_async(image_base64, image_media_type, text):
+    """Async implementation of recipe image parsing using Claude Agent SDK."""
+    result_text = ""
+    oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
+    env = {"CLAUDE_CODE_OAUTH_TOKEN": oauth_token} if oauth_token else {}
+
+    content = [
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": image_media_type,
+                "data": image_base64,
+            },
+        },
+    ]
+
+    prompt_text = "Parse this recipe from the image."
+    if text:
+        prompt_text += f"\n\nAdditional context from the user:\n{text}"
+    content.append({"type": "text", "text": prompt_text})
+
+    async def prompt_iter():
+        yield {
+            "type": "user",
+            "message": {"role": "user", "content": content},
+        }
+
+    async for message in query(
+        prompt=prompt_iter(),
+        options=ClaudeAgentOptions(
+            system_prompt=SYSTEM_PROMPT,
+            allowed_tools=[],
+            env=env,
+        ),
+    ):
+        if isinstance(message, ResultMessage):
+            result_text = message.result
+
+    if not result_text:
+        raise RuntimeError("No response from Claude agent")
+
+    # Strip markdown code fences if present
+    result_text = re.sub(r'^```(?:json)?\s*\n?', '', result_text, flags=re.MULTILINE)
+    result_text = re.sub(r'\n?```\s*$', '', result_text, flags=re.MULTILINE)
+    result_text = result_text.strip()
+
+    return json.loads(result_text)
+
+
 def parse_recipe_text(text):
     """Parse raw recipe text into structured JSON using Claude.
 
@@ -84,3 +134,19 @@ def parse_recipe_text(text):
         dict with parsed recipe data
     """
     return anyio.run(_parse_recipe_async, text)
+
+
+def parse_recipe_image(image_base64, image_media_type='image/jpeg', text=''):
+    """Parse a recipe from an image using Claude.
+
+    Args:
+        image_base64: Base64-encoded image data
+        image_media_type: MIME type (image/png, image/jpeg, image/webp)
+        text: Optional additional text/instructions from the user
+
+    Returns:
+        dict with parsed recipe data
+    """
+    async def _run():
+        return await _parse_recipe_image_async(image_base64, image_media_type, text)
+    return anyio.run(_run)

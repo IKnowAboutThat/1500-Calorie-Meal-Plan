@@ -36,6 +36,18 @@ export async function parseRecipeText(text) {
   });
 }
 
+export async function parseRecipe({ text, imageData, imageType }) {
+  const body = { text: text || '' };
+  if (imageData) {
+    body.image_base64 = imageData;
+    body.image_media_type = imageType || 'image/jpeg';
+  }
+  return _fetch('/recipes/parse', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export async function saveRecipe(recipe) {
   return _fetch('/recipes', {
     method: 'POST',

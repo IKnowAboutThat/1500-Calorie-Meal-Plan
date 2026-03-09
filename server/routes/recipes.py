@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models.recipe import get_all_recipes, get_recipe, create_recipe, update_recipe, delete_recipe
 from models.tag import tag_recipe, untag_recipe
-from services.claude_parser import parse_recipe_text
+from services.claude_parser import parse_recipe_text, parse_recipe_image
 from services.usda_lookup import get_or_create_ingredient, IngredientNotFoundError
 
 recipes_bp = Blueprint('recipes', __name__)
@@ -28,12 +28,18 @@ def parse_recipe():
     """Parse raw recipe text via Claude, then enrich with USDA nutrition."""
     data = request.get_json()
     text = data.get('text', '')
-    if not text.strip():
-        return jsonify({'error': 'No recipe text provided'}), 400
+    image_base64 = data.get('image_base64')
+    image_media_type = data.get('image_media_type', 'image/jpeg')
+
+    if not text.strip() and not image_base64:
+        return jsonify({'error': 'No recipe text or image provided'}), 400
 
     # Step 1: Claude parse
     try:
-        parsed = parse_recipe_text(text)
+        if image_base64:
+            parsed = parse_recipe_image(image_base64, image_media_type, text.strip())
+        else:
+            parsed = parse_recipe_text(text)
     except Exception as e:
         return jsonify({'error': f'Failed to parse recipe: {str(e)}'}), 500
 

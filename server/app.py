@@ -4,8 +4,17 @@ from flask import Flask
 from flask_cors import CORS
 from db import init_db
 
-app = Flask(__name__)
+import os
+APP_DIR = os.path.join(os.path.dirname(__file__), '..', 'app')
+
+app = Flask(__name__, static_folder=APP_DIR, static_url_path='')
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB for image uploads
 CORS(app, origins=["http://localhost:*", "http://127.0.0.1:*"])
+
+
+@app.route('/')
+def index():
+    return app.send_static_file('index.html')
 
 
 @app.route('/api/health')

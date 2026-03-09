@@ -26,6 +26,8 @@ let state = {
   view: 'paste', // 'paste' | 'loading' | 'preview' | 'saving'
   parsedRecipe: null,
   lookupErrors: [],
+  imageData: null,   // base64 string (no prefix)
+  imageType: null,    // e.g. 'image/png'
 };
 
 // ============================================================
@@ -39,9 +41,22 @@ function renderPasteView() {
       <p class="text-secondary">Paste any recipe text below and let AI parse it into a structured, nutritionally complete recipe.</p>
 
       <div class="card" style="margin-top: 1.5rem;">
+        <div id="image-upload-area" style="border: 2px dashed var(--color-border); border-radius: var(--radius); padding: 1.5rem; text-align: center; cursor: pointer; margin-bottom: 1rem; transition: border-color 0.2s, background 0.2s;">
+          <div id="image-upload-placeholder">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.5rem;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p style="margin: 0; color: var(--color-text-secondary); font-size: 0.9rem;">Drop a recipe image here or click to upload</p>
+            <p style="margin: 0.25rem 0 0; color: var(--color-text-secondary); font-size: 0.75rem;">PNG, JPG, or WebP</p>
+          </div>
+          <div id="image-preview-container" style="display: none;">
+            <img id="image-preview" style="max-width: 100%; max-height: 300px; border-radius: var(--radius);" />
+            <button class="btn btn-secondary btn-sm" id="remove-image-btn" style="margin-top: 0.5rem;">Remove Image</button>
+          </div>
+          <input type="file" id="image-file-input" accept="image/png,image/jpeg,image/webp" style="display: none;" />
+        </div>
+
         <textarea id="recipe-text-input"
-          placeholder="Paste your recipe here...&#10;&#10;Example:&#10;Thai Basil Chicken&#10;Serves 2&#10;&#10;Ingredients:&#10;- 1 lb ground chicken&#10;- 4 cloves garlic, minced&#10;- 2 tbsp fish sauce&#10;..."
-          rows="16"
+          placeholder="Paste recipe text here, add notes about the image, or describe what you'd like changed...&#10;&#10;You can use text alone, an image alone, or both together."
+          rows="10"
           style="width: 100%; font-family: var(--font-family); font-size: 0.95rem; padding: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); resize: vertical; background: var(--color-surface); line-height: 1.6;"
         ></textarea>
 
@@ -254,14 +269,85 @@ function renderPreviewView(recipe) {
 // Event Handling
 // ============================================================
 
+function handleImageFile(file, container) {
+  if (!file || !file.type.match(/^image\/(png|jpeg|webp)$/)) {
+    showToast('Please upload a PNG, JPG, or WebP image', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    state.imageType = file.type;
+    state.imageData = dataUrl.split(',')[1]; // strip data:...;base64, prefix
+    const preview = container.querySelector('#image-preview');
+    const previewContainer = container.querySelector('#image-preview-container');
+    const placeholder = container.querySelector('#image-upload-placeholder');
+    if (preview && previewContainer && placeholder) {
+      preview.src = dataUrl;
+      previewContainer.style.display = 'block';
+      placeholder.style.display = 'none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
 function attachEvents(container) {
+  // Image upload: click area to trigger file input
+  container.addEventListener('click', (e) => {
+    const uploadArea = e.target.closest('#image-upload-area');
+    if (uploadArea && !e.target.closest('#remove-image-btn')) {
+      container.querySelector('#image-file-input')?.click();
+    }
+    // Remove image button
+    if (e.target.closest('#remove-image-btn')) {
+      e.stopPropagation();
+      state.imageData = null;
+      state.imageType = null;
+      const preview = container.querySelector('#image-preview-container');
+      const placeholder = container.querySelector('#image-upload-placeholder');
+      if (preview) preview.style.display = 'none';
+      if (placeholder) placeholder.style.display = 'block';
+      const fileInput = container.querySelector('#image-file-input');
+      if (fileInput) fileInput.value = '';
+    }
+  });
+
+  // File input change
+  container.addEventListener('change', (e) => {
+    if (e.target.id === 'image-file-input' && e.target.files?.[0]) {
+      handleImageFile(e.target.files[0], container);
+    }
+  });
+
+  // Drag and drop
+  const uploadArea = container.querySelector('#image-upload-area');
+  if (uploadArea) {
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = 'var(--color-primary)';
+      uploadArea.style.background = 'var(--color-surface)';
+    });
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.style.borderColor = 'var(--color-border)';
+      uploadArea.style.background = '';
+    });
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.style.borderColor = 'var(--color-border)';
+      uploadArea.style.background = '';
+      if (e.dataTransfer.files?.[0]) {
+        handleImageFile(e.dataTransfer.files[0], container);
+      }
+    });
+  }
+
   container.addEventListener('click', async (e) => {
     // Parse button
     if (e.target.closest('#parse-recipe-btn')) {
       const textarea = container.querySelector('#recipe-text-input');
       const text = textarea?.value?.trim();
-      if (!text) {
-        showToast('Please paste a recipe first', 'error');
+      if (!text && !state.imageData) {
+        showToast('Please paste a recipe or upload an image first', 'error');
         return;
       }
 
@@ -269,7 +355,7 @@ function attachEvents(container) {
       render(container);
 
       try {
-        const result = await api.parseRecipeText(text);
+        const result = await api.parseRecipe({ text, imageData: state.imageData, imageType: state.imageType });
         state.parsedRecipe = result;
         state.lookupErrors = result.lookup_errors || [];
         state.view = 'preview';
@@ -341,7 +427,7 @@ async function saveRecipe(container) {
     showToast(`"${name}" saved successfully!`, 'success');
 
     // Reset and go to recipe library
-    state = { view: 'paste', parsedRecipe: null, lookupErrors: [] };
+    state = { view: 'paste', parsedRecipe: null, lookupErrors: [], imageData: null, imageType: null };
     location.hash = 'recipes';
   } catch (err) {
     showToast(`Save failed: ${err.message}`, 'error');
@@ -382,7 +468,7 @@ function render(container) {
 }
 
 export function renderAddRecipe(container) {
-  state = { view: 'paste', parsedRecipe: null, lookupErrors: [] };
+  state = { view: 'paste', parsedRecipe: null, lookupErrors: [], imageData: null, imageType: null };
   render(container);
   attachEvents(container);
 }
