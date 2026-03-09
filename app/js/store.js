@@ -98,46 +98,40 @@ export function unsubscribe(key, callback) {
 }
 
 // ============================================================
-// Meal Planner state
+// Meal Planner state (server-backed via API)
 // ============================================================
 
 /**
  * Retrieve a week plan by its weekId (e.g. "2026-W10").
  * Returns the plan object or null.
  */
-export function getWeekPlan(weekId) {
-  return getItem(`mp_weekPlan_${weekId}`, null);
+export async function getWeekPlan(weekId) {
+  const { getMealPlan } = await import('./api.js');
+  return await getMealPlan(weekId);
 }
 
 /**
- * Persist a week plan and ensure its weekId appears in the plan index.
+ * Persist a week plan to the server.
  */
-export function saveWeekPlan(weekId, plan) {
-  setItem(`mp_weekPlan_${weekId}`, plan);
-
-  const index = getAllWeekPlanIds();
-  if (!index.includes(weekId)) {
-    index.push(weekId);
-    index.sort();
-    setItem('mp_weekPlanIndex', index);
-  }
+export async function saveWeekPlan(weekId, plan) {
+  const { saveMealPlan } = await import('./api.js');
+  await saveMealPlan(weekId, plan);
 }
 
 /**
  * Return the array of all weekIds that have saved plans.
  */
-export function getAllWeekPlanIds() {
-  return getItem('mp_weekPlanIndex', []);
+export async function getAllWeekPlanIds() {
+  const { listMealPlanIds } = await import('./api.js');
+  return await listMealPlanIds();
 }
 
 /**
- * Delete a week plan and remove its weekId from the index.
+ * Delete a week plan.
  */
-export function deleteWeekPlan(weekId) {
-  removeItem(`mp_weekPlan_${weekId}`);
-
-  const index = getAllWeekPlanIds().filter((id) => id !== weekId);
-  setItem('mp_weekPlanIndex', index);
+export async function deleteWeekPlan(weekId) {
+  const { deleteMealPlan } = await import('./api.js');
+  await deleteMealPlan(weekId);
 }
 
 // ============================================================
@@ -500,6 +494,67 @@ export function getShoppingChecked(weekId) {
  */
 export function saveShoppingChecked(weekId, checked) {
   setItem(`mp_shoppingChecked_${weekId}`, checked);
+}
+
+// ============================================================
+// Inventory (server-backed via API)
+// ============================================================
+
+/**
+ * Get all inventory items from the server.
+ */
+export async function getInventoryItems() {
+  const { getInventory } = await import('./api.js');
+  return await getInventory();
+}
+
+/**
+ * Add an item to inventory on the server.
+ */
+export async function addToInventory(data) {
+  const { addInventoryItem } = await import('./api.js');
+  return await addInventoryItem(data);
+}
+
+/**
+ * Update an inventory item on the server.
+ */
+export async function updateInventory(id, data) {
+  const { updateInventoryItem } = await import('./api.js');
+  return await updateInventoryItem(id, data);
+}
+
+/**
+ * Delete an inventory item from the server.
+ */
+export async function deleteFromInventory(id) {
+  const { deleteInventoryItem } = await import('./api.js');
+  return await deleteInventoryItem(id);
+}
+
+/**
+ * Deduct recipe ingredients from inventory (called when marking cooked).
+ * Returns { deductions: [{ ingredient_name, amount_deducted, unit }] }
+ */
+export async function deductRecipeInventory(recipeId) {
+  const { deductRecipeFromInventory } = await import('./api.js');
+  return await deductRecipeFromInventory(recipeId);
+}
+
+/**
+ * Get purchase units for an ingredient.
+ */
+export async function getIngredientPurchaseUnits(ingredientId) {
+  const { getPurchaseUnits } = await import('./api.js');
+  return await getPurchaseUnits(ingredientId);
+}
+
+/**
+ * Record a purchase (updates preference learning).
+ */
+export async function recordIngredientPurchase(data) {
+  const { recordPurchase } = await import('./api.js');
+  return await recordPurchase(data);
 }
 
 // ============================================================

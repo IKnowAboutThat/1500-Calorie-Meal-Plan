@@ -35,22 +35,22 @@ async function loadPage(page, container) {
       }
       case 'planner': {
         const { renderMealPlanner } = await import('./meal-planner.js');
-        renderMealPlanner(container);
+        await renderMealPlanner(container);
         break;
       }
       case 'shopping-list': {
         const { renderShoppingList } = await import('./shopping-list.js');
-        renderShoppingList(container);
+        await renderShoppingList(container);
         break;
       }
       case 'pantry': {
-        const { renderPantry } = await import('./pantry.js');
-        renderPantry(container);
+        const { renderInventory } = await import('./inventory.js');
+        await renderInventory(container);
         break;
       }
       case 'dashboard': {
         const { renderDashboard } = await import('./macro-dashboard.js');
-        renderDashboard(container);
+        await renderDashboard(container);
         break;
       }
       case 'settings': {
@@ -73,7 +73,16 @@ async function loadPage(page, container) {
       }
     }
   } catch (e) {
-    container.innerHTML = `<div class="empty-state"><p>Module loading error: ${e.message}</p></div>`;
+    console.error('[loadPage] Module load failed for:', page, e);
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>Failed to load page. This can happen if the server is unreachable.</p>
+        <button class="btn btn-primary" onclick="location.reload()">Reload App</button>
+        <details style="margin-top:1rem;text-align:left;font-size:0.8rem;">
+          <summary>Error details</summary>
+          <pre style="white-space:pre-wrap;">${e.message}\n${e.stack || ''}</pre>
+        </details>
+      </div>`;
   }
 }
 

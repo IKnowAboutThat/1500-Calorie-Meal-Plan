@@ -1659,3 +1659,10 @@ input[type="checkbox"] {
 .btn-icon:hover {
   color: var(--color-primary) !important;
 }
+
+/* Inventory expiry indicators */
+.expiry-green { background: #27ae60; color: #fff; }
+.expiry-yellow { background: #f39c12; color: #fff; }
+.expiry-red { background: #c0392b; color: #fff; }
+.expiry-expired { background: #7f1d1d; color: #fff; }
+.expiry-none { background: var(--color-border); color: var(--color-text-secondary); }

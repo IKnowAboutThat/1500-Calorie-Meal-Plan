@@ -133,3 +133,90 @@ export async function removeTagHierarchy(parentTagId, childTagId) {
     body: JSON.stringify({ parent_tag_id: parentTagId, child_tag_id: childTagId }),
   });
 }
+
+// ---- Meal Plans ----
+
+export async function getMealPlan(weekId) {
+  return _fetch(`/meal-plans/${weekId}`);
+}
+
+export async function saveMealPlan(weekId, plan) {
+  return _fetch(`/meal-plans/${weekId}`, {
+    method: 'PUT',
+    body: JSON.stringify(plan),
+  });
+}
+
+export async function deleteMealPlan(weekId) {
+  return _fetch(`/meal-plans/${weekId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function listMealPlanIds() {
+  return _fetch('/meal-plans');
+}
+
+// ---- Inventory ----
+
+export async function getInventory() {
+  return _fetch('/inventory');
+}
+
+export async function addInventoryItem(data) {
+  return _fetch('/inventory', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateInventoryItem(id, data) {
+  return _fetch(`/inventory/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteInventoryItem(id) {
+  return _fetch(`/inventory/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function deductRecipeFromInventory(recipeId) {
+  return _fetch(`/inventory/deduct-recipe/${recipeId}`, {
+    method: 'POST',
+  });
+}
+
+// ---- Purchase Units ----
+
+export async function getPurchaseUnits(ingredientId) {
+  const query = ingredientId ? `?ingredient_id=${ingredientId}` : '';
+  return _fetch(`/purchase-units${query}`);
+}
+
+export async function createPurchaseUnit(data) {
+  return _fetch('/purchase-units', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function recordPurchase(data) {
+  return _fetch('/purchase-units/record-purchase', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// ---- Shelf Life ----
+
+export async function getShelfLife(ingredientId) {
+  const query = ingredientId ? `?ingredient_id=${ingredientId}` : '';
+  return _fetch(`/shelf-life${query}`);
+}
+
+export async function lookupShelfLife(ingredientId, state, storageType) {
+  return _fetch(`/shelf-life/lookup?ingredient_id=${ingredientId}&state=${state}&storage_type=${storageType}`);
+}

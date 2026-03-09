@@ -66,6 +66,13 @@ CREATE TABLE IF NOT EXISTS tag_hierarchy (
     PRIMARY KEY (parent_tag_id, child_tag_id)
 );
 
+-- Meal plans (weekly plans stored as JSON)
+CREATE TABLE IF NOT EXISTS meal_plans (
+    week_id TEXT PRIMARY KEY,
+    plan_data TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Recipe tags with lineage context
 -- parent_tag_id uses 0 instead of NULL for top-level tags so it can participate in PK
 CREATE TABLE IF NOT EXISTS recipe_tags (
@@ -73,6 +80,55 @@ CREATE TABLE IF NOT EXISTS recipe_tags (
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     parent_tag_id INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (recipe_id, tag_id, parent_tag_id)
+);
+
+-- How ingredients are sold at the store (multiple options per ingredient)
+CREATE TABLE IF NOT EXISTS purchase_units (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+    label TEXT NOT NULL,
+    unit_type TEXT NOT NULL,
+    package_quantity REAL NOT NULL,
+    package_weight_g REAL,
+    piece_weight_g REAL,
+    is_preferred INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Shelf life per ingredient state and storage type
+CREATE TABLE IF NOT EXISTS ingredient_shelf_life (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+    state TEXT NOT NULL,
+    storage_type TEXT NOT NULL,
+    shelf_life_days INTEGER NOT NULL,
+    UNIQUE(ingredient_id, state, storage_type)
+);
+
+-- Current ingredient inventory (what's in the house)
+CREATE TABLE IF NOT EXISTS inventory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+    quantity REAL NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'g',
+    state TEXT NOT NULL DEFAULT 'raw',
+    storage_type TEXT NOT NULL DEFAULT 'fridge',
+    date_acquired DATE NOT NULL DEFAULT (date('now')),
+    expiry_date DATE,
+    purchase_unit_id INTEGER REFERENCES purchase_units(id),
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Purchase history for learning preferred purchase units
+CREATE TABLE IF NOT EXISTS purchase_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+    purchase_unit_id INTEGER REFERENCES purchase_units(id) ON DELETE SET NULL,
+    custom_label TEXT,
+    custom_quantity REAL,
+    custom_unit TEXT,
+    date_purchased DATE NOT NULL DEFAULT (date('now')),
+    store_name TEXT
 );
 """
 

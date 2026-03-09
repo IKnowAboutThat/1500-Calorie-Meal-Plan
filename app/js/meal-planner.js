@@ -136,7 +136,8 @@ for (const r of getRecipes()) {
 }
 
 function getRecipeById(id) {
-  return recipesById.get(id) || null;
+  const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+  return recipesById.get(numId) || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,13 +165,13 @@ function createEmptyPlan(weekId) {
 }
 
 /**
- * Load plan from store or create a fresh empty one.
+ * Load plan from server or create a fresh empty one.
  */
-function loadOrCreatePlan(weekId) {
-  const existing = store.getWeekPlan(weekId);
+async function loadOrCreatePlan(weekId) {
+  const existing = await store.getWeekPlan(weekId);
   if (existing) return existing;
   const plan = createEmptyPlan(weekId);
-  store.saveWeekPlan(weekId, plan);
+  await store.saveWeekPlan(weekId, plan);
   return plan;
 }
 
@@ -275,10 +276,11 @@ let currentContainer = null;
 
 /**
  * Primary export. Renders the full meal planner UI into the given container.
+ * Fetches plan from server on initial load, then uses localStorage for speed.
  */
-export function renderMealPlanner(container) {
+export async function renderMealPlanner(container) {
   currentContainer = container;
-  const plan = loadOrCreatePlan(currentWeekId);
+  const plan = await loadOrCreatePlan(currentWeekId);
   const dates = getWeekDates(currentWeekId);
 
   container.innerHTML = `
@@ -567,12 +569,12 @@ async function openRecipePicker(dayKey, slotName) {
 
   // Recipe selection
   if (listEl) {
-    listEl.addEventListener('click', (e) => {
+    listEl.addEventListener('click', async (e) => {
       const item = e.target.closest('[data-recipe-id]');
       if (!item) return;
       const recipeId = item.dataset.recipeId;
-      assignRecipe(dayKey, slotName, recipeId);
       closeModal();
+      await assignRecipe(dayKey, slotName, recipeId);
     });
   }
 
@@ -652,36 +654,35 @@ function renderRecipeList(allRecipes, filter, searchQuery) {
 /**
  * Assign a recipe to a day + slot, persist, and re-render.
  */
-function assignRecipe(dayKey, slotName, recipeId) {
-  const plan = loadOrCreatePlan(currentWeekId);
+async function assignRecipe(dayKey, slotName, recipeId) {
+  const numericId = typeof recipeId === 'string' ? parseInt(recipeId, 10) : recipeId;
+  const plan = await loadOrCreatePlan(currentWeekId);
   const dayPlan = plan.days[dayKey];
   if (!dayPlan) return;
 
   const slot = dayPlan.slots.find(s => s.slotName === slotName);
   if (slot) {
-    slot.recipeId = recipeId;
+    slot.recipeId = numericId;
   }
 
-  store.saveWeekPlan(currentWeekId, plan);
+  await store.saveWeekPlan(currentWeekId, plan);
 
   if (currentContainer) {
-    renderMealPlanner(currentContainer);
+    await renderMealPlanner(currentContainer);
   }
 
-  // Show a toast
   const recipe = getRecipeById(recipeId);
-  getApp().then(app => {
-    if (recipe) {
-      app.showToast(`Added "${recipe.name}" to ${slotName}`, 'success');
-    }
-  });
+  const app = await getApp();
+  if (recipe) {
+    app.showToast(`Added "${recipe.name}" to ${slotName}`, 'success');
+  }
 }
 
 /**
  * Remove a recipe from a day + slot, persist, and re-render.
  */
-function removeRecipe(dayKey, slotName) {
-  const plan = loadOrCreatePlan(currentWeekId);
+async function removeRecipe(dayKey, slotName) {
+  const plan = await loadOrCreatePlan(currentWeekId);
   const dayPlan = plan.days[dayKey];
   if (!dayPlan) return;
 
@@ -690,15 +691,14 @@ function removeRecipe(dayKey, slotName) {
     slot.recipeId = null;
   }
 
-  store.saveWeekPlan(currentWeekId, plan);
+  await store.saveWeekPlan(currentWeekId, plan);
 
   if (currentContainer) {
-    renderMealPlanner(currentContainer);
+    await renderMealPlanner(currentContainer);
   }
 
-  getApp().then(app => {
-    app.showToast(`Removed recipe from ${slotName}`, 'info');
-  });
+  const app = await getApp();
+  app.showToast(`Removed recipe from ${slotName}`, 'info');
 }
 
 // ---------------------------------------------------------------------------
@@ -764,7 +764,7 @@ function attachEventListeners(container) {
       const slotName = cookedBtn.dataset.slot;
       const recipeId = cookedBtn.dataset.recipeId;
 
-      const plan = loadOrCreatePlan(currentWeekId);
+      const plan = await loadOrCreatePlan(currentWeekId);
       const dayPlan = plan.days[dayKey];
       if (!dayPlan) return;
 
@@ -778,10 +778,19 @@ function attachEventListeners(container) {
       }
 
       slot.cooked = true;
-      store.saveWeekPlan(currentWeekId, plan);
+      await store.saveWeekPlan(currentWeekId, plan);
 
       const newCount = store.incrementCookCount(recipeId);
       const recipe = getRecipeById(recipeId);
+
+      // Deduct ingredients from inventory (non-blocking)
+      let deductions = [];
+      try {
+        const result = await store.deductRecipeInventory(parseInt(recipeId, 10));
+        deductions = result.deductions || [];
+      } catch (err) {
+        console.warn('[meal-planner] Inventory deduction failed:', err);
+      }
 
       if (currentContainer) {
         renderMealPlanner(currentContainer);
@@ -789,7 +798,20 @@ function attachEventListeners(container) {
 
       const { showToast } = await getApp();
       const name = recipe ? recipe.name : 'Recipe';
-      showToast(`"${name}" marked as cooked! (${newCount} total)`, 'success');
+
+      if (deductions.length > 0) {
+        const deductionSummary = deductions
+          .filter(d => d.amount_deducted > 0)
+          .map(d => `${d.amount_deducted}${d.unit} ${d.ingredient_name}`)
+          .join(', ');
+        if (deductionSummary) {
+          showToast(`"${name}" cooked! Removed: ${deductionSummary}`, 'success');
+        } else {
+          showToast(`"${name}" marked as cooked! (${newCount} total)`, 'success');
+        }
+      } else {
+        showToast(`"${name}" marked as cooked! (${newCount} total)`, 'success');
+      }
       return;
     }
 
