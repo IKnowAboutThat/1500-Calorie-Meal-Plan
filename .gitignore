@@ -1,7 +1,6 @@
 .DS_Store
 node_modules/
 .worktrees/
-data/recipes.db
 __pycache__/
 .env
 venv/
