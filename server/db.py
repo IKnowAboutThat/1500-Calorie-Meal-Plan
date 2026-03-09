@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
     ingredient_id INTEGER NOT NULL REFERENCES ingredients(id),
     amount REAL NOT NULL,
     unit TEXT DEFAULT 'g',
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    section TEXT
 );
 
 -- Tags (flat entities)
@@ -167,6 +168,14 @@ def init_db():
         _maybe_backup(DB_PATH)
     conn.executescript(SCHEMA_SQL)
     conn.commit()
+
+    # Migration: add section column if it doesn't exist
+    try:
+        conn.execute("ALTER TABLE recipe_ingredients ADD COLUMN section TEXT")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
     conn.close()
 
 

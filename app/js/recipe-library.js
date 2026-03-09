@@ -331,18 +331,27 @@ function buildRecipeDetailHTML(recipe) {
   const recipeTags = store.getRecipeTags();
   const tags = recipeTags[recipe.id] || [];
 
-  const ingredientRows = recipe.ingredients
-    .map(
-      (ing) => `
-      <tr>
-        <td>${escapeHTML(ing.name)}</td>
+  let ingredientRows = '';
+  let currentSection = null;
+  for (const ing of recipe.ingredients) {
+    if (ing.section !== currentSection) {
+      currentSection = ing.section;
+      if (currentSection) {
+        ingredientRows += `
+      <tr class="ingredient-section-header">
+        <td colspan="5"><h4 style="margin:0.5rem 0 0.25rem;font-size:0.95rem;">${escapeHTML(currentSection)}</h4></td>
+      </tr>`;
+      }
+    }
+    ingredientRows += `
+      <tr${ing.section ? ' style="font-size:0.9rem;opacity:0.85;"' : ''}>
+        <td>${ing.section ? '&ensp;' : ''}${escapeHTML(ing.name)}</td>
         <td>${ing.amount}${ing.unit}</td>
         <td>${ing.calories}</td>
         <td>${ing.protein}g</td>
         <td>${ing.fiber}g</td>
-      </tr>`
-    )
-    .join('');
+      </tr>`;
+  }
 
   const totalCal = recipe.ingredients.reduce((sum, i) => sum + i.calories, 0);
   const totalProtein = recipe.ingredients.reduce((sum, i) => sum + i.protein, 0);
@@ -470,7 +479,8 @@ function rerenderTagPills(recipeId) {
 // ============================================================
 
 export async function openRecipeModal(recipeId) {
-  const recipe = getRecipes().find((r) => r.id === recipeId);
+  const numId = typeof recipeId === 'string' ? parseInt(recipeId, 10) : recipeId;
+  const recipe = getRecipes().find((r) => r.id === numId);
   if (!recipe) return;
 
   const html = buildRecipeDetailHTML(recipe);

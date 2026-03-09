@@ -49,7 +49,7 @@ def _enrich_recipe(row, conn):
 
     # Get ingredients with nutrition
     ing_rows = conn.execute("""
-        SELECT ri.amount, ri.unit, ri.sort_order,
+        SELECT ri.amount, ri.unit, ri.sort_order, ri.section,
                i.id as ingredient_id, i.name, i.calories_per_100g,
                i.protein_per_100g, i.fat_per_100g, i.carbs_per_100g,
                i.fiber_per_100g, i.micronutrients, i.category
