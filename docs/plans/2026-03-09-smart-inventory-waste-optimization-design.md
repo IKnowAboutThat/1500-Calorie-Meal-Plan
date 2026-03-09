@@ -1,10 +1,20 @@
 # Smart Inventory & Food Waste Optimization Design
 
+## Status
+
+| Phase | Status | Committed |
+|-------|--------|-----------|
+| Phase 1: Purchase Units + Inventory + Auto-Deduct | COMPLETE | 2026-03-09 (commit 093b464) |
+| Phase 2: Shelf Life Intelligence | NOT STARTED | — |
+| Phase 3: Smart Waste Optimization | NOT STARTED | — |
+
+**Next up:** Phase 2. Start here when resuming work.
+
 ## Overview
 
 Extend the existing meal planning app with grocery purchase unit awareness, real-time ingredient inventory tracking, shelf life intelligence, and waste-optimizing meal plan generation. Built in three phases, each usable on its own.
 
-## Phase 1: Foundation (Purchase Units + Inventory + Auto-Deduct)
+## Phase 1: Foundation (Purchase Units + Inventory + Auto-Deduct) — COMPLETE
 
 ### New Database Tables
 
