@@ -88,8 +88,52 @@ def get_connection():
 
 
 def init_db():
-    """Create all tables if they don't exist."""
+    """Create all tables if they don't exist.
+
+    Refuses to start if the database exists but has no recipes,
+    since that likely means the file was recreated empty by accident.
+    Creates a timestamped backup every 60 days.
+    """
+    import shutil
+    import time
+
+    db_exists = os.path.exists(DB_PATH) and os.path.getsize(DB_PATH) > 0
     conn = get_connection()
+    if db_exists:
+        count = conn.execute("SELECT COUNT(*) FROM recipes").fetchone()[0]
+        if count == 0:
+            conn.close()
+            raise RuntimeError(
+                f"Database at {DB_PATH} exists but has 0 recipes. "
+                "This likely means the file was recreated empty. "
+                "Restore from git or backup before starting the server."
+            )
+        _maybe_backup(DB_PATH)
     conn.executescript(SCHEMA_SQL)
     conn.commit()
     conn.close()
+
+
+BACKUP_INTERVAL_DAYS = 60
+
+
+def _maybe_backup(db_path):
+    """Create a timestamped backup if the most recent one is older than BACKUP_INTERVAL_DAYS."""
+    import shutil
+    import glob
+    import time
+
+    backup_dir = os.path.join(os.path.dirname(db_path), 'backups')
+    os.makedirs(backup_dir, exist_ok=True)
+
+    existing = sorted(glob.glob(os.path.join(backup_dir, 'recipes_*.db')))
+    if existing:
+        newest_mtime = os.path.getmtime(existing[-1])
+        days_since = (time.time() - newest_mtime) / 86400
+        if days_since < BACKUP_INTERVAL_DAYS:
+            return
+
+    timestamp = time.strftime('%Y%m%d')
+    backup_path = os.path.join(backup_dir, f'recipes_{timestamp}.db')
+    shutil.copy2(db_path, backup_path)
+    print(f"Database backed up to {backup_path}")
