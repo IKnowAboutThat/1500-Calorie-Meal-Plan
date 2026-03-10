@@ -101,7 +101,7 @@ export function getPrebuiltTemplates() {
  *   - "fill-empty": only populate slots that currently have no recipe
  * @returns {boolean} true if the template was found and applied
  */
-export function loadTemplateToWeek(templateId, weekId, mode = 'replace') {
+export async function loadTemplateToWeek(templateId, weekId, mode = 'replace') {
   // Find the template — check prebuilt first, then user-saved
   let template = getPrebuiltTemplates().find(t => t.id === templateId);
   if (!template) {
@@ -111,7 +111,7 @@ export function loadTemplateToWeek(templateId, weekId, mode = 'replace') {
   if (!template) return false;
 
   // Get or create the week plan
-  let plan = store.getWeekPlan(weekId);
+  let plan = await store.getWeekPlan(weekId);
   if (!plan) {
     plan = { weekId, days: {} };
     DAY_KEYS.forEach(dk => {
@@ -151,7 +151,7 @@ export function loadTemplateToWeek(templateId, weekId, mode = 'replace') {
     }
   }
 
-  store.saveWeekPlan(weekId, plan);
+  await store.saveWeekPlan(weekId, plan);
   return true;
 }
 
@@ -166,8 +166,8 @@ export function loadTemplateToWeek(templateId, weekId, mode = 'replace') {
  * @param {string} name   - Human-readable name for the template
  * @returns {Object|null} The saved template object, or null if no plan exists
  */
-export function saveCurrentWeekAsTemplate(weekId, name) {
-  const plan = store.getWeekPlan(weekId);
+export async function saveCurrentWeekAsTemplate(weekId, name) {
+  const plan = await store.getWeekPlan(weekId);
   if (!plan) return null;
 
   const template = {
@@ -322,7 +322,7 @@ function attachTemplatePanelListeners(container, weekId, onLoad) {
         return;
       }
 
-      const result = saveCurrentWeekAsTemplate(weekId, name);
+      const result = await saveCurrentWeekAsTemplate(weekId, name);
       const { showToast } = await getApp();
 
       if (result) {
@@ -341,7 +341,7 @@ function attachTemplatePanelListeners(container, weekId, onLoad) {
       const templateId = loadBtn.dataset.id;
       const mode = loadBtn.dataset.mode;
 
-      const success = loadTemplateToWeek(templateId, weekId, mode);
+      const success = await loadTemplateToWeek(templateId, weekId, mode);
       const { showToast, closeModal } = await getApp();
 
       if (success) {

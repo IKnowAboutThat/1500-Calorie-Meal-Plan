@@ -425,7 +425,7 @@ function buildRecipeDetailHTML(recipe) {
               <tr style="font-weight:700;">
                 <td>Total</td>
                 <td></td>
-                <td>${totalCal}</td>
+                <td>${totalCal.toFixed(1)}</td>
                 <td>${totalProtein.toFixed(1)}g</td>
                 <td>${totalFiber.toFixed(1)}g</td>
               </tr>

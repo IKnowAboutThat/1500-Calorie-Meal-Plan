@@ -105,7 +105,8 @@ for (const r of getRecipes()) {
 }
 
 function getRecipeById(id) {
-  return recipesById.get(id) || null;
+  const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+  return recipesById.get(numId) || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +139,7 @@ let currentContainer = null;
  * Primary export. Renders the shopping list page into the given container.
  * @param {HTMLElement} container
  */
-export function renderShoppingList(container) {
+export async function renderShoppingList(container) {
   currentContainer = container;
 
   // Reset generated list on fresh render
@@ -146,13 +147,13 @@ export function renderShoppingList(container) {
   expandedSources = new Set();
 
   // Default to current week
-  const allWeekIds = store.getAllWeekPlanIds();
+  const allWeekIds = await store.getAllWeekPlanIds();
   if (allWeekIds.length > 0 && !allWeekIds.includes(currentWeekId)) {
     // If current week has no plan, default to the most recent planned week
     currentWeekId = allWeekIds[allWeekIds.length - 1];
   }
 
-  container.innerHTML = buildPageHTML();
+  container.innerHTML = await buildPageHTML();
   attachEventListeners(container);
 }
 
@@ -160,8 +161,8 @@ export function renderShoppingList(container) {
 // Full page HTML builder
 // ---------------------------------------------------------------------------
 
-function buildPageHTML() {
-  const allWeekIds = store.getAllWeekPlanIds();
+async function buildPageHTML() {
+  const allWeekIds = await store.getAllWeekPlanIds();
 
   return `
     <h2 style="margin-bottom: 1rem;">Shopping List</h2>
@@ -408,8 +409,8 @@ function buildSummaryStats(recipeCount, totalBefore, totalAfter) {
  * Aggregate ingredients from the selected week plan and days,
  * apply pantry subtraction if enabled, and group by category.
  */
-function generateShoppingListData() {
-  const plan = store.getWeekPlan(currentWeekId);
+async function generateShoppingListData() {
+  const plan = await store.getWeekPlan(currentWeekId);
 
   if (!plan || !plan.days) {
     return { categories: new Map(), recipeCount: 0, totalBefore: 0, totalAfter: 0 };
@@ -770,7 +771,7 @@ async function handleClick(e) {
 
   // Generate button
   if (target.closest('#generate-shopping-list')) {
-    generatedList = generateShoppingListData();
+    generatedList = await generateShoppingListData();
     rerenderOutput();
     return;
   }
@@ -891,9 +892,9 @@ function handleChange(e) {
 /**
  * Full re-render of the entire page into the container.
  */
-function rerender() {
+async function rerender() {
   if (!currentContainer) return;
-  currentContainer.innerHTML = buildPageHTML();
+  currentContainer.innerHTML = await buildPageHTML();
   attachEventListeners(currentContainer);
 }
 

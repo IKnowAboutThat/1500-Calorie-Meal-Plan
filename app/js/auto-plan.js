@@ -121,7 +121,8 @@ for (const r of getRecipes()) {
 }
 
 function getRecipeById(id) {
-  return recipesById.get(id) || null;
+  const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+  return recipesById.get(numId) || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -165,12 +166,12 @@ function createEmptyPlan(weekId) {
 /**
  * Gather recipe IDs used in the previous N weeks for freshness scoring.
  */
-function getRecentRecipeIds(weekId, lookbackWeeks = 2) {
+async function getRecentRecipeIds(weekId, lookbackWeeks = 2) {
   const recentIds = new Set();
   let wid = weekId;
   for (let i = 0; i < lookbackWeeks; i++) {
     wid = getPrevWeekId(wid);
-    const plan = store.getWeekPlan(wid);
+    const plan = await store.getWeekPlan(wid);
     if (plan && plan.days) {
       for (const dayKey of DAY_KEYS) {
         const day = plan.days[dayKey];
@@ -202,7 +203,7 @@ function getRecentRecipeIds(weekId, lookbackWeeks = 2) {
  * @param {boolean} [options.cuisineVariety=true] - Avoid consecutive cuisine repeats
  * @returns {object} The complete week plan object
  */
-export function generateWeekPlan(weekId, options = {}) {
+export async function generateWeekPlan(weekId, options = {}) {
   const {
     fillEmptyOnly = true,
     maximizeOverlap = true,
@@ -215,7 +216,7 @@ export function generateWeekPlan(weekId, options = {}) {
   const adrenalProtein = adrenalCocktail.totalProtein;  // 8
 
   // Get or create plan
-  let plan = store.getWeekPlan(weekId);
+  let plan = await store.getWeekPlan(weekId);
   if (!plan) {
     plan = createEmptyPlan(weekId);
   } else {
@@ -233,7 +234,7 @@ export function generateWeekPlan(weekId, options = {}) {
   const weekIngredients = new Map(); // ingredient name -> count
 
   // Get recently used recipes from adjacent weeks for freshness
-  const recentRecipeIds = getRecentRecipeIds(weekId, 2);
+  const recentRecipeIds = await getRecentRecipeIds(weekId, 2);
 
   // If fillEmptyOnly, pre-populate tracking sets with existing assignments
   if (fillEmptyOnly) {
@@ -667,9 +668,9 @@ export function renderAutoPlanner(container, weekId, onApply) {
   }
 
   // Generate and show preview
-  function doGenerate() {
+  async function doGenerate() {
     const options = getOptions();
-    const plan = generateWeekPlan(weekId, options);
+    const plan = await generateWeekPlan(weekId, options);
     const previewContainer = container.querySelector('#auto-preview');
     if (!previewContainer) return;
 
@@ -678,7 +679,7 @@ export function renderAutoPlanner(container, weekId, onApply) {
 
   // Apply the plan: save it, call onApply, show toast, close modal
   async function applyPlan(plan) {
-    store.saveWeekPlan(weekId, plan);
+    await store.saveWeekPlan(weekId, plan);
 
     const app = await getApp();
 

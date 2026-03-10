@@ -373,10 +373,10 @@ let currentContainer = null;
 /**
  * Primary export. Renders the full macro dashboard UI into the given container.
  */
-export function renderDashboard(container) {
+export async function renderDashboard(container) {
   currentContainer = container;
 
-  const plan = store.getWeekPlan(currentWeekId);
+  const plan = await store.getWeekPlan(currentWeekId);
   const dates = getWeekDates(currentWeekId);
   const settings = store.getSettings();
   const targets = settings.dailyTargets;
@@ -709,25 +709,25 @@ function renderDayCard(d, targets) {
  * Attach all click handlers to the container using event delegation.
  */
 function attachEventListeners(container) {
-  container.addEventListener('click', (e) => {
+  container.addEventListener('click', async (e) => {
     const target = e.target;
 
     // ---- Week navigation ----
     if (target.closest('[data-action="prev-week"]')) {
       currentWeekId = getPrevWeekId(currentWeekId);
-      renderDashboard(container);
+      await renderDashboard(container);
       return;
     }
 
     if (target.closest('[data-action="next-week"]')) {
       currentWeekId = getNextWeekId(currentWeekId);
-      renderDashboard(container);
+      await renderDashboard(container);
       return;
     }
 
     if (target.closest('[data-action="today-week"]')) {
       currentWeekId = getISOWeekId(new Date());
-      renderDashboard(container);
+      await renderDashboard(container);
       return;
     }
 
@@ -754,7 +754,7 @@ function attachEventListeners(container) {
       }
 
       store.setAdrenalLog(date, newCount);
-      renderDashboard(container);
+      await renderDashboard(container);
 
       getApp().then(app => {
         app.showToast(

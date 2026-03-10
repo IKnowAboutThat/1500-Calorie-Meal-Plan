@@ -9,7 +9,7 @@ from models.shelf_life import (
 shelf_life_bp = Blueprint("shelf_life", __name__)
 
 
-@shelf_life_bp.route("", methods=["GET"])
+@shelf_life_bp.route("/", methods=["GET"])
 def list_all():
     """Return all shelf life data (optionally filter by ingredient_id)."""
     ingredient_id = request.args.get("ingredient_id", type=int)
@@ -18,7 +18,7 @@ def list_all():
     return jsonify(get_all_shelf_life())
 
 
-@shelf_life_bp.route("", methods=["POST"])
+@shelf_life_bp.route("/", methods=["POST"])
 def upsert():
     """Create or update a shelf life entry."""
     data = request.get_json(force=True)
