@@ -9,66 +9,148 @@ from config import USDA_API_BASE, USDA_API_KEY
 
 # Common synonyms: search term -> USDA-friendly name
 SYNONYMS = {
-    "scallion": "green onion",
-    "scallions": "green onion",
-    "spring onion": "green onion",
-    "spring onions": "green onion",
+    # Alliums
+    "scallion": "onions spring or scallions",
+    "scallions": "onions spring or scallions",
+    "spring onion": "onions spring or scallions",
+    "spring onions": "onions spring or scallions",
+    "red onion": "onions red raw",
+    "shallot": "shallots raw",
+    "shallots": "shallots raw",
+    "garlic": "garlic raw",
+    # Herbs & spices
+    "cilantro": "coriander cilantro leaves raw",
+    "coriander": "coriander cilantro leaves raw",
+    "parsley": "parsley fresh",
+    "dill": "dill weed fresh",
+    "mint": "spearmint fresh",
+    "thai basil": "basil fresh",
+    "rosemary": "rosemary fresh",
+    "thyme": "thyme fresh",
+    "oregano": "spices oregano dried",
+    "cumin": "spices cumin seed",
+    "paprika": "spices paprika",
+    "turmeric": "spices turmeric ground",
+    "garam masala": "spices curry powder",
+    "chili powder": "spices chili powder",
+    "chili flakes": "peppers hot chili red raw",
+    "red chili flakes": "peppers hot chili red raw",
+    "chili": "peppers hot chili red raw",
+    "lemon zest": "lemon peel raw",
+    "ginger": "ginger root raw",
+    "galangal": "ginger root raw",
+    "lemongrass": "lemon grass citronella raw",
+    "kaffir lime leaf": "lemon grass citronella raw",
+    "italian herbs": "spices oregano dried",
+    "herbs": "spices basil dried",
+    "baharat spice blend": "spices allspice ground",
+    "shawarma spices": "spices cumin seed",
+    "annatto powder": "spices paprika",
+    "fine sea salt": "salt table",
+    "cracked black pepper": "spices pepper black",
+    "garlic powder": "spices garlic powder",
+    "onion powder": "spices onion powder",
+    "ground cumin": "spices cumin seed",
+    "dried oregano": "spices oregano dried",
+    # Proteins
+    "ground turkey, 93% lean": "turkey ground 93 lean raw",
+    "ground turkey": "turkey ground raw",
+    "turkey breast, roasted": "turkey breast roasted",
+    "turkey breast, sliced": "turkey breast",
+    "chicken breast": "chicken breast raw",
+    "chicken breast, cooked": "chicken breast raw",
+    "shrimp, cooked": "shrimp cooked",
+    "salmon fillet": "salmon atlantic raw",
+    "canned tuna in water": "tuna light canned water drained",
+    # Vegetables
+    "baby spinach": "spinach raw",
+    "arugula": "arugula raw",
+    "bell pepper": "peppers bell red raw",
+    "bell pepper, roasted": "peppers bell red raw",
+    "red bell pepper": "peppers sweet red raw",
+    "green bell pepper": "peppers sweet green raw",
+    "zucchini": "squash summer zucchini raw",
+    "zucchini noodles": "squash summer zucchini raw",
+    "zucchini, roasted": "squash summer zucchini raw",
+    "cauliflower rice": "cauliflower raw",
+    "bok choy": "cabbage bok choy raw",
+    "baby bok choy": "cabbage bok choy raw",
+    "romaine lettuce": "lettuce cos romaine raw",
+    "romaine": "lettuce cos romaine raw",
+    "butter lettuce": "lettuce butterhead raw",
+    "diced tomato": "tomatoes red raw",
+    "tomato paste": "tomato paste canned",
+    "eggplant, roasted": "eggplant raw",
+    "broccoli, roasted": "broccoli raw",
+    "shredded cabbage": "cabbage raw",
+    "shredded carrot": "carrots raw",
+    "sweet potato": "sweet potato raw",
+    "snap peas": "peas sugar snap raw",
+    "snow peas": "peas edible-podded raw",
+    "jalapeño": "peppers jalapeno raw",
+    # Legumes & grains
+    "chickpeas": "chickpeas garbanzo",
+    "chickpeas, cooked": "chickpeas cooked boiled",
+    "garbanzo beans": "chickpeas garbanzo",
+    "edamame, shelled": "edamame frozen prepared",
+    "red lentils, cooked": "lentils cooked boiled",
+    "green lentils, cooked": "lentils cooked boiled",
+    "black beans, cooked": "beans black cooked boiled",
+    "white beans, cooked": "beans white cooked boiled",
+    "quinoa, cooked": "quinoa cooked",
+    "brown rice, cooked": "rice brown cooked",
+    # Oils & fats
+    "olive oil": "oil olive salad or cooking",
+    "sesame oil": "oil sesame salad or cooking",
+    "coconut oil": "oil coconut",
+    "avocado oil": "oil avocado",
+    "tahini": "seeds sesame butter tahini",
+    # Condiments & sauces
+    "coconut aminos": "soy sauce made from soy",
+    "hot sauce": "sauce hot pepper",
+    "dijon mustard": "mustard prepared yellow",
+    "rice vinegar": "vinegar",
+    "hummus": "hummus commercial",
     "gf miso paste": "miso",
     "miso paste": "miso",
-    "gf curry paste": "curry paste",
-    "gf bbq sauce": "barbecue sauce",
+    "gf bbq sauce": "sauce barbecue",
     "gf soy sauce": "soy sauce",
-    "coconut aminos": "soy sauce",
     "gf teriyaki sauce": "teriyaki sauce",
     "gf fish sauce": "fish sauce",
     "fish sauce": "fish sauce",
     "gf hoisin sauce": "hoisin sauce",
     "gf tamari": "soy sauce",
     "tamari": "soy sauce",
-    "cilantro": "coriander leaves",
-    "arugula": "rocket salad",
-    "bell pepper": "sweet pepper",
-    "red bell pepper": "sweet red pepper",
-    "green bell pepper": "sweet green pepper",
-    "zucchini": "summer squash zucchini",
-    "chickpeas": "chickpea",
-    "garbanzo beans": "chickpea",
-    "eggplant": "eggplant",
-    "snow peas": "snow peas",
-    "snap peas": "sugar snap peas",
-    "bok choy": "bok choy",
-    "baby bok choy": "bok choy",
-    "romaine lettuce": "lettuce cos romaine",
-    "romaine": "lettuce cos romaine",
-    "baby spinach": "spinach",
-    "ground turkey, 93% lean": "ground turkey",
-    "ground turkey": "ground turkey",
-    "turkey breast, roasted": "turkey breast roasted",
-    "turkey breast, sliced": "turkey breast",
-    "chicken breast": "chicken breast",
-    "shrimp, cooked": "shrimp cooked",
-    "salmon fillet": "salmon atlantic",
-    "canned tuna in water": "tuna canned water",
-    "cauliflower rice": "cauliflower",
-    "sweet potato": "sweet potato",
-    "red lentils, cooked": "lentils cooked",
-    "green lentils, cooked": "lentils cooked",
-    "black beans, cooked": "black beans cooked",
-    "white beans, cooked": "white beans cooked",
-    "quinoa, cooked": "quinoa cooked",
-    "brown rice, cooked": "brown rice cooked",
-    "broccoli, roasted": "broccoli",
-    "edamame, shelled": "edamame",
-    "avocado": "avocado",
-    "hummus (gf)": "hummus",
-    "hummus": "hummus",
-    "hot sauce": "hot sauce",
-    "lime juice": "lime juice",
-    "lemon juice": "lemon juice",
-    "olive oil": "olive oil",
-    "sesame oil": "sesame oil",
-    "coconut oil": "coconut oil",
-    "avocado oil": "oil avocado",
+    "gf salsa roja": "salsa ready to serve",
+    "gf salsa verde": "salsa verde ready to serve",
+    "gf cocktail sauce": "sauce cocktail ready to serve",
+    "gf thai chili paste": "peppers hot chili red raw",
+    "harissa paste": "peppers hot raw",
+    "aji amarillo paste": "peppers hot raw",
+    "guacamole": "avocado raw",
+    # Dairy & alternatives
+    "coconut yogurt": "yogurt plain whole milk",
+    "light coconut milk": "coconut milk raw",
+    # Other
+    "avocado": "avocado raw",
+    "kalamata olives": "olives ripe canned",
+    "capers": "capers canned",
+    "egg whites": "egg white raw fresh",
+    "pickled ginger": "ginger root raw",
+    "sesame seeds": "seeds sesame whole dried",
+    "toasted rice": "rice white cooked",
+    "fresh mango": "mango raw",
+}
+
+# Manual nutrition overrides for items USDA can't match reliably.
+# Values are per 100g: (calories, protein, fat, carbs, fiber, category)
+MANUAL_OVERRIDES = {
+    "gf curry paste": (90, 2, 4, 12, 2, "condiment"),
+    "gf tikka masala paste": (90, 2, 4, 12, 2, "condiment"),
+    "gf tikka paste": (90, 2, 4, 12, 2, "condiment"),
+    "gochujang": (100, 3, 1, 20, 2, "condiment"),
+    "fine sea salt": (0, 0, 0, 0, 0, "spice"),
+    "salt": (0, 0, 0, 0, 0, "spice"),
 }
 
 # USDA nutrient IDs for extraction
@@ -122,14 +204,33 @@ def _normalize(name):
     name = name.lower().strip()
     # Remove parenthetical notes like "(GF)"
     name = re.sub(r'\(.*?\)', '', name).strip()
+    # Remove "gf " prefix
+    if name.startswith('gf '):
+        name = name[3:]
+    # Remove trailing quantity notes like "30ml"
+    name = re.sub(r'\s+\d+\s*(?:ml|g|oz)\s*$', '', name).strip()
     # Remove trailing 's' for simple depluralization
     if name.endswith('s') and not name.endswith('ss'):
         name = name[:-1]
     return name
 
 
+def _sanitize_query(query):
+    """Remove characters that cause USDA API 400 errors."""
+    # Remove parentheses and their contents
+    query = re.sub(r'\(.*?\)', '', query).strip()
+    # Remove special characters: +, —, :, etc.
+    query = re.sub(r'[+—:;]', ' ', query).strip()
+    # Collapse multiple spaces
+    query = re.sub(r'\s+', ' ', query).strip()
+    return query
+
+
 def _search_usda(query, data_types="SR Legacy,Foundation", retries=3):
     """Search USDA FoodData Central API with retry on rate limit."""
+    query = _sanitize_query(query)
+    if not query:
+        return []
     params = {
         'api_key': USDA_API_KEY,
         'query': query,
@@ -164,9 +265,13 @@ def _score_result(food, query):
         score += 100
 
     # Query words all present in description
-    query_words = query_lower.split()
+    query_words = [w for w in query_lower.split() if len(w) > 2]
     matches = sum(1 for w in query_words if w in desc)
-    score += matches * 10
+    score += matches * 15
+
+    # Penalize heavily if no query words match at all
+    if query_words and matches == 0:
+        score -= 100
 
     # Prefer "raw" items
     if 'raw' in desc:
@@ -176,14 +281,21 @@ def _score_result(food, query):
     score -= len(desc) * 0.1
 
     # Penalize processed/breaded/fried items
-    penalties = ['breaded', 'fried', 'battered', 'frozen', 'canned', 'dried',
-                 'oil,', 'infant', 'baby food', 'supplement', 'powder']
+    penalties = ['breaded', 'fried', 'battered', 'infant', 'baby food', 'supplement']
     for p in penalties:
         if p in desc:
-            score -= 20
+            score -= 30
 
-    # Prefer Foundation data type
+    # Penalize common false-positive matches
+    false_positives = ['almond paste', 'taco shell', 'mayonnaise', 'table fat']
+    for fp in false_positives:
+        if fp in desc and fp not in query_lower:
+            score -= 200
+
+    # Prefer Foundation data type, then SR Legacy
     if food.get('dataType') == 'Foundation':
+        score += 10
+    elif food.get('dataType') == 'SR Legacy':
         score += 5
 
     return score
@@ -257,6 +369,17 @@ def _guess_category(name, food=None):
     return 'other'
 
 
+def _check_manual_override(name):
+    """Check if ingredient has a manual nutrition override.
+
+    Returns (calories, protein, fat, carbs, fiber, category) or None.
+    """
+    name_lower = name.lower().strip()
+    # Strip (GF) and similar for lookup
+    cleaned = re.sub(r'\(.*?\)', '', name_lower).strip()
+    return MANUAL_OVERRIDES.get(name_lower) or MANUAL_OVERRIDES.get(cleaned)
+
+
 def get_or_create_ingredient(name):
     """Look up or create a canonical ingredient with USDA nutritional data.
 
@@ -272,14 +395,35 @@ def get_or_create_ingredient(name):
         conn.close()
         return result
 
-    # Build search terms to try
+    # Check manual overrides
+    override = _check_manual_override(name)
+    if override:
+        cal, protein, fat, carbs, fiber, category = override
+        conn.execute("""
+            INSERT INTO ingredients (name, calories_per_100g, protein_per_100g,
+                                     fat_per_100g, carbs_per_100g, fiber_per_100g,
+                                     micronutrients, category)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, cal, protein, fat, carbs, fiber, json.dumps({}), category))
+        conn.commit()
+        row = conn.execute("SELECT * FROM ingredients WHERE LOWER(name) = LOWER(?)", (name,)).fetchone()
+        result = dict(row)
+        conn.close()
+        return result
+
+    # Build search terms to try — synonym first (most reliable), then normalized
     searches_tried = []
     name_lower = name.lower().strip()
-    synonym = SYNONYMS.get(name_lower)
+    # Also try with (GF) and similar stripped for synonym lookup
+    cleaned_lower = re.sub(r'\(.*?\)', '', name_lower).strip()
 
-    search_terms = [name]
-    if synonym and synonym.lower() != name_lower:
+    synonym = SYNONYMS.get(name_lower) or SYNONYMS.get(cleaned_lower)
+
+    search_terms = []
+    if synonym:
         search_terms.append(synonym)
+
+    search_terms.append(name)
 
     normalized = _normalize(name)
     if normalized not in [t.lower() for t in search_terms]:
