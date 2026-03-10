@@ -478,3 +478,142 @@ def get_or_create_ingredient(name):
     result = dict(row)
     conn.close()
     return result
+
+
+# ============================================================
+# Blend detection and splitting
+# ============================================================
+
+# Qualifier patterns — ingredient names matching these are NOT blends
+_QUALIFIER_SUFFIXES = [
+    ", cooked", ", roasted", ", shelled", ", sliced", ", raw",
+    ", 93% lean", ", unsweetened", ", diced", ", chopped",
+    ", ground", ", dried", ", fresh", ", frozen",
+]
+
+
+def is_blend(name):
+    """Return True if this ingredient name is a comma-separated blend to split."""
+    if ',' not in name and ':' not in name:
+        return False
+
+    lower = name.lower().strip()
+
+    for suffix in _QUALIFIER_SUFFIXES:
+        if lower.endswith(suffix):
+            return False
+
+    return True
+
+
+def _clean_sub_name(name):
+    """Clean a sub-ingredient name parsed from a blend."""
+    name = name.strip()
+    name = re.sub(r'\s*\(.*?\)', '', name).strip()  # Remove (GF) etc.
+    name = re.sub(r'\s+\d+\s*(?:ml|g|oz)\s*$', '', name, flags=re.IGNORECASE).strip()
+    if name:
+        name = name[0].upper() + name[1:]
+    return name
+
+
+def split_blend(name, total_grams):
+    """Split a blend ingredient into individual sub-ingredients.
+
+    Returns a list of dicts: [{'name': str, 'amount': int, 'section': str|None}, ...]
+    The amounts are integers that sum to round(total_grams).
+    """
+    section = None
+
+    # Sub-recipe case: "Chimichurri sauce (GF): parsley, cilantro, ..."
+    if ':' in name:
+        parts = name.split(':', 1)
+        section = _clean_sub_name(parts[0])
+        remainder = parts[1]
+    else:
+        remainder = name
+
+    sub_names = [_clean_sub_name(p) for p in remainder.split(',')]
+    sub_names = [n for n in sub_names if n]
+
+    if not sub_names:
+        return []
+
+    # Equal split with remainder distribution
+    total_int = round(total_grams)
+    count = len(sub_names)
+    base = total_int // count
+    leftover = total_int - (base * count)
+
+    result = []
+    for i, sn in enumerate(sub_names):
+        amt = base + (1 if i < leftover else 0)
+        result.append({'name': sn, 'amount': amt, 'section': section})
+
+    return result
+
+
+def expand_ingredient(ing):
+    """Expand a parsed ingredient dict, splitting blends if needed.
+
+    Args:
+        ing: dict with 'name', 'grams_equivalent' or 'amount', optionally 'unit'
+
+    Returns:
+        List of enriched ingredient dicts ready for recipe creation.
+        Each has: ingredient_id, name, amount, unit, section, calories, protein, etc.
+
+    Raises IngredientNotFoundError if any sub-ingredient can't be found.
+    """
+    ing_name = ing.get('name', '')
+    amount_g = ing.get('grams_equivalent', ing.get('amount', 0))
+    unit = ing.get('unit', 'g')
+
+    if not is_blend(ing_name):
+        # Single ingredient — standard lookup
+        usda_data = get_or_create_ingredient(ing_name)
+        factor = amount_g / 100.0
+        return [{
+            'ingredient_id': usda_data['id'],
+            'name': ing_name,
+            'amount': amount_g,
+            'unit': unit,
+            'section': None,
+            'calories_per_100g': usda_data['calories_per_100g'],
+            'protein_per_100g': usda_data['protein_per_100g'],
+            'fat_per_100g': usda_data['fat_per_100g'],
+            'carbs_per_100g': usda_data['carbs_per_100g'],
+            'fiber_per_100g': usda_data['fiber_per_100g'],
+            'category': usda_data['category'],
+            'calories': round((usda_data['calories_per_100g'] or 0) * factor, 1),
+            'protein': round((usda_data['protein_per_100g'] or 0) * factor, 1),
+            'fat': round((usda_data['fat_per_100g'] or 0) * factor, 1),
+            'carbs': round((usda_data['carbs_per_100g'] or 0) * factor, 1),
+            'fiber': round((usda_data['fiber_per_100g'] or 0) * factor, 1),
+        }]
+
+    # Blend — split and look up each sub-ingredient
+    parts = split_blend(ing_name, amount_g)
+    results = []
+    for part in parts:
+        usda_data = get_or_create_ingredient(part['name'])
+        factor = part['amount'] / 100.0
+        results.append({
+            'ingredient_id': usda_data['id'],
+            'name': part['name'],
+            'amount': part['amount'],
+            'unit': unit,
+            'section': part['section'],
+            'calories_per_100g': usda_data['calories_per_100g'],
+            'protein_per_100g': usda_data['protein_per_100g'],
+            'fat_per_100g': usda_data['fat_per_100g'],
+            'carbs_per_100g': usda_data['carbs_per_100g'],
+            'fiber_per_100g': usda_data['fiber_per_100g'],
+            'category': usda_data['category'],
+            'calories': round((usda_data['calories_per_100g'] or 0) * factor, 1),
+            'protein': round((usda_data['protein_per_100g'] or 0) * factor, 1),
+            'fat': round((usda_data['fat_per_100g'] or 0) * factor, 1),
+            'carbs': round((usda_data['carbs_per_100g'] or 0) * factor, 1),
+            'fiber': round((usda_data['fiber_per_100g'] or 0) * factor, 1),
+        })
+
+    return results

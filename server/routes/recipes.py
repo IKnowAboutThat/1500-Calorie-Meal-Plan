@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 from models.recipe import get_all_recipes, get_recipe, create_recipe, update_recipe, delete_recipe
 from models.tag import tag_recipe, untag_recipe
 from services.claude_parser import parse_recipe_text, parse_recipe_image
-from services.usda_lookup import get_or_create_ingredient, IngredientNotFoundError
+from services.usda_lookup import get_or_create_ingredient, expand_ingredient, IngredientNotFoundError
 
 recipes_bp = Blueprint('recipes', __name__)
 
@@ -43,34 +43,14 @@ def parse_recipe():
     except Exception as e:
         return jsonify({'error': f'Failed to parse recipe: {str(e)}'}), 500
 
-    # Step 2: USDA lookup for each ingredient
+    # Step 2: USDA lookup for each ingredient (auto-splits blends)
     enriched_ingredients = []
     lookup_errors = []
 
     for ing in parsed.get('ingredients', []):
-        ing_name = ing.get('name', '')
         try:
-            usda_data = get_or_create_ingredient(ing_name)
-            amount_g = ing.get('grams_equivalent', ing.get('amount', 0))
-            factor = amount_g / 100.0
-
-            enriched_ingredients.append({
-                'ingredient_id': usda_data['id'],
-                'name': ing_name,
-                'amount': amount_g,
-                'unit': ing.get('unit', 'g'),
-                'calories_per_100g': usda_data['calories_per_100g'],
-                'protein_per_100g': usda_data['protein_per_100g'],
-                'fat_per_100g': usda_data['fat_per_100g'],
-                'carbs_per_100g': usda_data['carbs_per_100g'],
-                'fiber_per_100g': usda_data['fiber_per_100g'],
-                'category': usda_data['category'],
-                'calories': round((usda_data['calories_per_100g'] or 0) * factor, 1),
-                'protein': round((usda_data['protein_per_100g'] or 0) * factor, 1),
-                'fat': round((usda_data['fat_per_100g'] or 0) * factor, 1),
-                'carbs': round((usda_data['carbs_per_100g'] or 0) * factor, 1),
-                'fiber': round((usda_data['fiber_per_100g'] or 0) * factor, 1),
-            })
+            expanded = expand_ingredient(ing)
+            enriched_ingredients.extend(expanded)
         except IngredientNotFoundError as e:
             lookup_errors.append({
                 'ingredient': e.ingredient,
@@ -147,6 +127,7 @@ def save_recipe():
             'amount': ing['amount'],
             'unit': ing.get('unit', 'g'),
             'sort_order': idx,
+            'section': ing.get('section'),
         })
 
     recipe = create_recipe(recipe_data, ingredient_rows)

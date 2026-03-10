@@ -169,9 +169,9 @@ def create_recipe(data, ingredient_rows):
     # Insert recipe_ingredients
     for idx, ing in enumerate(ingredient_rows):
         conn.execute("""
-            INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit, sort_order)
-            VALUES (?, ?, ?, ?, ?)
-        """, (recipe_id, ing['ingredient_id'], ing['amount'], ing.get('unit', 'g'), ing.get('sort_order', idx)))
+            INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit, sort_order, section)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (recipe_id, ing['ingredient_id'], ing['amount'], ing.get('unit', 'g'), ing.get('sort_order', idx), ing.get('section')))
 
     # Insert tags
     for tag in data.get('tags', []):
