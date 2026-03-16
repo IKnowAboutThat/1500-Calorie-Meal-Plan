@@ -53,6 +53,43 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/**
+ * Rebuild the protein multi-select toggle button content.
+ */
+function rebuildProteinToggle(container) {
+  const toggle = container.querySelector('#protein-multiselect-toggle');
+  if (!toggle) return;
+  if (filterState.protein.length === 0) {
+    toggle.innerHTML = 'All Proteins';
+  } else {
+    toggle.innerHTML = filterState.protein
+      .map(p => `<span class="filter-pill">${escapeHTML(capitalize(p))}<span class="filter-pill__remove" data-protein="${escapeHTML(p)}">&times;</span></span>`)
+      .join('');
+  }
+}
+
+/**
+ * Sync checkbox states in the protein dropdown with filterState.
+ */
+function syncProteinCheckboxes(container) {
+  const dropdown = container.querySelector('#protein-multiselect-dropdown');
+  if (!dropdown) return;
+  dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.checked = filterState.protein.includes(cb.value);
+  });
+}
+
+/**
+ * Close protein multi-select dropdown when clicking outside.
+ * Named function so it can be removed on page navigation (prevents leaks).
+ */
+function handleDropdownOutsideClick(e) {
+  if (!e.target.closest('#protein-multiselect')) {
+    const dropdown = document.querySelector('#protein-multiselect-dropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+  }
+}
+
 // ============================================================
 // Filter state
 // ============================================================
@@ -60,11 +97,14 @@ function capitalize(str) {
 let filterState = {
   search: '',
   cuisine: '',
-  protein: '',
+  protein: [],            // array of selected protein sources
   mealType: '',       // '' = all, 'meal', 'snack'
   favoritesOnly: false,
   cookCountMax: '',   // '' = no filter, '0' = never cooked, '3'/'5'/'10' = less than N
   sort: 'name-asc',
+  fiberTarget: '',       // fiber grams target (string, '' = no filter)
+  proteinTarget: '',     // protein grams target (string, '' = no filter)
+  margin: store.getItem('mp_filterMargin', 5),  // +/- margin for numeric filters, persisted
 };
 
 // ============================================================
@@ -88,9 +128,33 @@ function getFilteredRecipes() {
     filtered = filtered.filter((r) => r.cuisine === filterState.cuisine);
   }
 
-  // Protein filter
-  if (filterState.protein) {
-    filtered = filtered.filter((r) => r.mainProtein === filterState.protein);
+  // Protein source filter (multi-select)
+  if (filterState.protein.length > 0) {
+    filtered = filtered.filter((r) => filterState.protein.includes(r.mainProtein));
+  }
+
+  // Fiber target filter (with margin)
+  if (filterState.fiberTarget !== '') {
+    const target = parseFloat(filterState.fiberTarget);
+    if (!isNaN(target)) {
+      const margin = filterState.margin;
+      filtered = filtered.filter((r) => {
+        const fiber = r.fiber ?? 0;
+        return fiber >= target - margin && fiber <= target + margin;
+      });
+    }
+  }
+
+  // Protein content filter (with margin)
+  if (filterState.proteinTarget !== '') {
+    const target = parseFloat(filterState.proteinTarget);
+    if (!isNaN(target)) {
+      const margin = filterState.margin;
+      filtered = filtered.filter((r) => {
+        const protein = r.protein ?? 0;
+        return protein >= target - margin && protein <= target + margin;
+      });
+    }
   }
 
   // Meal type filter
@@ -131,6 +195,10 @@ function getFilteredRecipes() {
         return a.protein - b.protein;
       case 'protein-desc':
         return b.protein - a.protein;
+      case 'fiber-asc':
+        return (a.fiber ?? 0) - (b.fiber ?? 0);
+      case 'fiber-desc':
+        return (b.fiber ?? 0) - (a.fiber ?? 0);
       case 'cook-desc':
         return (cookCounts[b.id] || 0) - (cookCounts[a.id] || 0);
       case 'cook-asc':
@@ -147,10 +215,12 @@ function hasActiveFilters() {
   return (
     filterState.search !== '' ||
     filterState.cuisine !== '' ||
-    filterState.protein !== '' ||
+    filterState.protein.length > 0 ||
     filterState.mealType !== '' ||
     filterState.favoritesOnly ||
-    filterState.cookCountMax !== ''
+    filterState.cookCountMax !== '' ||
+    filterState.fiberTarget !== '' ||
+    filterState.proteinTarget !== ''
   );
 }
 
@@ -158,11 +228,14 @@ function resetFilters(container) {
   filterState = {
     search: '',
     cuisine: '',
-    protein: '',
+    protein: [],
     mealType: '',
     favoritesOnly: false,
     cookCountMax: '',
     sort: filterState.sort,  // preserve sort preference
+    fiberTarget: '',
+    proteinTarget: '',
+    margin: store.getItem('mp_filterMargin', 5),
   };
 
   // Reset DOM controls
@@ -172,11 +245,20 @@ function resetFilters(container) {
   const cuisineSelect = container.querySelector('#filter-cuisine');
   if (cuisineSelect) cuisineSelect.value = '';
 
-  const proteinSelect = container.querySelector('#filter-protein');
-  if (proteinSelect) proteinSelect.value = '';
+  rebuildProteinToggle(container);
+  syncProteinCheckboxes(container);
 
   const cookCountSelect = container.querySelector('#filter-cook-count');
   if (cookCountSelect) cookCountSelect.value = '';
+
+  const fiberInput = container.querySelector('#filter-fiber');
+  if (fiberInput) fiberInput.value = '';
+
+  const proteinContentInput = container.querySelector('#filter-protein-content');
+  if (proteinContentInput) proteinContentInput.value = '';
+
+  const marginInput = container.querySelector('#filter-margin');
+  if (marginInput) marginInput.value = String(filterState.margin);
 
   // Reset meal type buttons
   container.querySelectorAll('[data-meal-type]').forEach((btn) => {
@@ -203,10 +285,6 @@ function buildFilterBarHTML() {
     .map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`)
     .join('');
 
-  const proteinOptions = proteins
-    .map((p) => `<option value="${escapeHTML(p)}">${escapeHTML(capitalize(p))}</option>`)
-    .join('');
-
   return `
     <div class="filter-bar">
       <input type="search" id="recipe-search" placeholder="Search recipes..." value="${escapeHTML(filterState.search)}">
@@ -216,10 +294,32 @@ function buildFilterBarHTML() {
         ${cuisineOptions}
       </select>
 
-      <select id="filter-protein">
-        <option value="">All Proteins</option>
-        ${proteinOptions}
-      </select>
+      <div class="filter-multiselect" id="protein-multiselect">
+        <button class="filter-multiselect__toggle" id="protein-multiselect-toggle" type="button">
+          ${filterState.protein.length === 0
+            ? 'All Proteins'
+            : filterState.protein.map(p => `<span class="filter-pill">${escapeHTML(capitalize(p))}<span class="filter-pill__remove" data-protein="${escapeHTML(p)}">&times;</span></span>`).join('')}
+        </button>
+        <div class="filter-multiselect__dropdown hidden" id="protein-multiselect-dropdown">
+          ${proteins.map(p => `
+            <label class="filter-multiselect__option">
+              <input type="checkbox" value="${escapeHTML(p)}" ${filterState.protein.includes(p) ? 'checked' : ''}>
+              ${escapeHTML(capitalize(p))}
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="filter-numeric-group">
+        <input type="number" id="filter-fiber" placeholder="Fiber (g)" min="0" step="1"
+          value="${filterState.fiberTarget}" class="filter-numeric-input">
+        <input type="number" id="filter-protein-content" placeholder="Protein (g)" min="0" step="1"
+          value="${filterState.proteinTarget}" class="filter-numeric-input">
+        <label class="filter-margin-label" title="Search range: target +/- this value">
+          &plusmn;<input type="number" id="filter-margin" min="0" max="50" step="1"
+            value="${filterState.margin}" class="filter-margin-input">g
+        </label>
+      </div>
 
       <div class="flex gap-1">
         <button class="btn ${filterState.mealType === '' ? 'btn-primary' : 'btn-secondary'} btn-sm" data-meal-type="">All</button>
@@ -244,6 +344,8 @@ function buildFilterBarHTML() {
         <option value="cal-desc"${filterState.sort === 'cal-desc' ? ' selected' : ''}>Calories &#8595;</option>
         <option value="protein-asc"${filterState.sort === 'protein-asc' ? ' selected' : ''}>Protein &#8593;</option>
         <option value="protein-desc"${filterState.sort === 'protein-desc' ? ' selected' : ''}>Protein &#8595;</option>
+        <option value="fiber-asc"${filterState.sort === 'fiber-asc' ? ' selected' : ''}>Fiber &#8593;</option>
+        <option value="fiber-desc"${filterState.sort === 'fiber-desc' ? ' selected' : ''}>Fiber &#8595;</option>
         <option value="cook-desc"${filterState.sort === 'cook-desc' ? ' selected' : ''}>Most Cooked</option>
         <option value="cook-asc"${filterState.sort === 'cook-asc' ? ' selected' : ''}>Least Cooked</option>
       </select>
@@ -638,12 +740,82 @@ function attachEvents(container) {
     });
   }
 
-  // Protein select
-  const proteinSelect = container.querySelector('#filter-protein');
-  if (proteinSelect) {
-    proteinSelect.addEventListener('change', (e) => {
-      filterState.protein = e.target.value;
+  // Protein source multi-select
+  const proteinToggle = container.querySelector('#protein-multiselect-toggle');
+  const proteinDropdown = container.querySelector('#protein-multiselect-dropdown');
+
+  if (proteinToggle && proteinDropdown) {
+    // Toggle dropdown open/close
+    proteinToggle.addEventListener('click', (e) => {
+      // If clicking a pill remove button, handle removal instead
+      const removeBtn = e.target.closest('.filter-pill__remove');
+      if (removeBtn) {
+        e.stopPropagation();
+        const val = removeBtn.dataset.protein;
+        filterState.protein = filterState.protein.filter(p => p !== val);
+        rebuildProteinToggle(container);
+        syncProteinCheckboxes(container);
+        renderGrid(container);
+        return;
+      }
+      proteinDropdown.classList.toggle('hidden');
+    });
+
+    // Handle checkbox changes inside dropdown
+    proteinDropdown.addEventListener('change', (e) => {
+      if (e.target.type === 'checkbox') {
+        const val = e.target.value;
+        if (e.target.checked) {
+          if (!filterState.protein.includes(val)) {
+            filterState.protein.push(val);
+          }
+        } else {
+          filterState.protein = filterState.protein.filter(p => p !== val);
+        }
+        rebuildProteinToggle(container);
+        renderGrid(container);
+      }
+    });
+
+    // Close dropdown when clicking outside (uses named function for cleanup)
+    document.addEventListener('click', handleDropdownOutsideClick);
+  }
+
+  // Fiber filter input
+  const fiberInput = container.querySelector('#filter-fiber');
+  if (fiberInput) {
+    const debouncedFiber = debounce((value) => {
+      filterState.fiberTarget = value;
       renderGrid(container);
+    }, 300);
+    fiberInput.addEventListener('input', (e) => {
+      debouncedFiber(e.target.value);
+    });
+  }
+
+  // Protein content filter input
+  const proteinContentInput = container.querySelector('#filter-protein-content');
+  if (proteinContentInput) {
+    const debouncedProteinContent = debounce((value) => {
+      filterState.proteinTarget = value;
+      renderGrid(container);
+    }, 300);
+    proteinContentInput.addEventListener('input', (e) => {
+      debouncedProteinContent(e.target.value);
+    });
+  }
+
+  // Margin input
+  const marginInput = container.querySelector('#filter-margin');
+  if (marginInput) {
+    marginInput.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10);
+      filterState.margin = isNaN(val) || val < 0 ? 5 : val;
+      store.setItem('mp_filterMargin', filterState.margin);
+      // Re-filter if either numeric filter is active
+      if (filterState.fiberTarget !== '' || filterState.proteinTarget !== '') {
+        renderGrid(container);
+      }
     });
   }
 
@@ -834,9 +1006,10 @@ function handleModalKeydown(e) {
  * @param {HTMLElement} container - The #app-content element.
  */
 export function renderRecipeLibrary(container) {
-  // Remove any prior modal event listeners to avoid duplicates
+  // Remove any prior event listeners to avoid duplicates
   document.body.removeEventListener('click', handleModalClick);
   document.body.removeEventListener('keydown', handleModalKeydown);
+  document.removeEventListener('click', handleDropdownOutsideClick);
 
   const filterBarHTML = buildFilterBarHTML();
   const filtered = getFilteredRecipes();
@@ -867,11 +1040,6 @@ export function renderRecipeLibrary(container) {
   const cuisineSelect = container.querySelector('#filter-cuisine');
   if (cuisineSelect && filterState.cuisine) {
     cuisineSelect.value = filterState.cuisine;
-  }
-
-  const proteinSelect = container.querySelector('#filter-protein');
-  if (proteinSelect && filterState.protein) {
-    proteinSelect.value = filterState.protein;
   }
 
   attachEvents(container);
