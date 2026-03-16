@@ -274,6 +274,9 @@ function fmtNum(n, decimals = 0) {
 let currentWeekId = getISOWeekId(new Date());
 let currentContainer = null;
 
+/** Drag state — transient, never persisted */
+let dragState = null; // { fromDayKey, fromSlotName, recipeId, cooked }
+
 /**
  * Primary export. Renders the full meal planner UI into the given container.
  * Fetches plan from server on initial load, then uses localStorage for speed.
@@ -378,11 +381,13 @@ function renderSlot(dayKey, slot) {
           <button class="btn btn-sm btn-icon" data-action="remove-recipe" data-day="${dayKey}" data-slot="${slot.slotName}" title="Remove">&times;</button>
         </div>
       </div>
-      <strong class="planner-slot__name" data-action="view-recipe" data-recipe-id="${recipe.id}" style="cursor:pointer;" title="View recipe details">${recipe.name}</strong>
-      <div class="planner-slot__macros">
-        <span class="badge badge-cal">${fmtNum(recipe.calories)} cal</span>
-        <span class="badge badge-protein">${fmtNum(recipe.protein, 1)}g P</span>
-        <span class="badge badge-fiber">${fmtNum(recipe.fiber, 1)}g F</span>
+      <div class="planner-slot__recipe-card" draggable="true" data-drag-day="${dayKey}" data-drag-slot="${slot.slotName}" data-drag-recipe-id="${recipe.id}" data-drag-cooked="${isCooked ? '1' : ''}">
+        <strong class="planner-slot__name" data-action="view-recipe" data-recipe-id="${recipe.id}" style="cursor:pointer;" title="View recipe details">${recipe.name}</strong>
+        <div class="planner-slot__macros">
+          <span class="badge badge-cal">${fmtNum(recipe.calories)} cal</span>
+          <span class="badge badge-protein">${fmtNum(recipe.protein, 1)}g P</span>
+          <span class="badge badge-fiber">${fmtNum(recipe.fiber, 1)}g F</span>
+        </div>
       </div>
     </div>
   `;
@@ -701,21 +706,192 @@ async function removeRecipe(dayKey, slotName) {
   app.showToast(`Removed recipe from ${slotName}`, 'info');
 }
 
+/**
+ * Move a recipe from one slot to another, or swap two recipes if the
+ * target slot is already filled. Persists and re-renders.
+ */
+async function moveOrSwapRecipe(fromDayKey, fromSlotName, toDayKey, toSlotName) {
+  // No-op: dropped on self
+  if (fromDayKey === toDayKey && fromSlotName === toSlotName) return;
+
+  const plan = await loadOrCreatePlan(currentWeekId);
+
+  const srcDay = plan.days[fromDayKey];
+  if (!srcDay) throw new Error(`moveOrSwapRecipe: invalid source day "${fromDayKey}"`);
+  const srcSlot = srcDay.slots.find(s => s.slotName === fromSlotName);
+  if (!srcSlot) throw new Error(`moveOrSwapRecipe: invalid source slot "${fromSlotName}" on day "${fromDayKey}"`);
+  if (!srcSlot.recipeId) throw new Error(`moveOrSwapRecipe: source slot "${fromSlotName}" on "${fromDayKey}" has no recipe`);
+
+  const dstDay = plan.days[toDayKey];
+  if (!dstDay) throw new Error(`moveOrSwapRecipe: invalid destination day "${toDayKey}"`);
+  const dstSlot = dstDay.slots.find(s => s.slotName === toSlotName);
+  if (!dstSlot) throw new Error(`moveOrSwapRecipe: invalid destination slot "${toSlotName}" on day "${toDayKey}"`);
+
+  const srcRecipeId = srcSlot.recipeId;
+  const srcCooked = srcSlot.cooked || false;
+  const dstRecipeId = dstSlot.recipeId;
+  const dstCooked = dstSlot.cooked || false;
+  const isSwap = !!dstRecipeId;
+
+  // Perform swap or move
+  dstSlot.recipeId = srcRecipeId;
+  dstSlot.cooked = srcCooked;
+
+  if (isSwap) {
+    srcSlot.recipeId = dstRecipeId;
+    srcSlot.cooked = dstCooked;
+  } else {
+    srcSlot.recipeId = null;
+    srcSlot.cooked = false;
+  }
+
+  await store.saveWeekPlan(currentWeekId, plan);
+
+  if (currentContainer) {
+    await renderMealPlanner(currentContainer);
+  }
+
+  const app = await getApp();
+  const srcRecipe = getRecipeById(srcRecipeId);
+  const srcName = srcRecipe ? srcRecipe.name : 'Recipe';
+
+  if (isSwap) {
+    const dstRecipe = getRecipeById(dstRecipeId);
+    const dstName = dstRecipe ? dstRecipe.name : 'Recipe';
+    app.showToast(`Swapped "${srcName}" ↔ "${dstName}"`, 'success');
+  } else {
+    app.showToast(`Moved "${srcName}" to ${toSlotName}`, 'success');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Event delegation
 // ---------------------------------------------------------------------------
 
-/** Named handler so we can remove it before re-adding (prevents stacking). */
+/** Named handlers so we can remove before re-adding (prevents stacking). */
 let _clickHandler = null;
+let _dragstartHandler = null;
+let _dragendHandler = null;
+let _dragoverHandler = null;
+let _dragleaveHandler = null;
+let _dropHandler = null;
+
+/**
+ * Resolve the nearest slot root element from an event target.
+ * Throws if no slot root is found.
+ */
+function resolveSlotRoot(el) {
+  const slotEl = el.closest('.planner-slot');
+  if (!slotEl) throw new Error('resolveSlotRoot: no .planner-slot ancestor found');
+  const day = slotEl.dataset.day;
+  const slot = slotEl.dataset.slot;
+  if (!day || !slot) throw new Error(`resolveSlotRoot: missing data-day or data-slot on slot element`);
+  return { el: slotEl, day, slot };
+}
 
 /**
  * Attach all click and interaction handlers to the container using
  * event delegation for efficient, leak-free listening.
  */
 function attachEventListeners(container) {
-  if (_clickHandler) {
-    container.removeEventListener('click', _clickHandler);
-  }
+  // --- Remove stale handlers ---
+  if (_clickHandler) container.removeEventListener('click', _clickHandler);
+  if (_dragstartHandler) container.removeEventListener('dragstart', _dragstartHandler);
+  if (_dragendHandler) container.removeEventListener('dragend', _dragendHandler);
+  if (_dragoverHandler) container.removeEventListener('dragover', _dragoverHandler);
+  if (_dragleaveHandler) container.removeEventListener('dragleave', _dragleaveHandler);
+  if (_dropHandler) container.removeEventListener('drop', _dropHandler);
+
+  // --- Drag event handlers ---
+
+  _dragstartHandler = (e) => {
+    const card = e.target.closest('.planner-slot__recipe-card');
+    if (!card) return;
+
+    dragState = {
+      fromDayKey: card.dataset.dragDay,
+      fromSlotName: card.dataset.dragSlot,
+      recipeId: card.dataset.dragRecipeId,
+      cooked: card.dataset.dragCooked === '1',
+    };
+
+    card.classList.add('planner-slot__recipe-card--dragging');
+
+    // Set drag data (required for Firefox)
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+  };
+
+  _dragendHandler = (e) => {
+    // Clear dragging class from any card
+    const dragging = container.querySelector('.planner-slot__recipe-card--dragging');
+    if (dragging) dragging.classList.remove('planner-slot__recipe-card--dragging');
+
+    // Clear all drop-over highlights
+    container.querySelectorAll('.planner-slot--drop-over').forEach(el => {
+      el.classList.remove('planner-slot--drop-over');
+    });
+
+    dragState = null;
+  };
+
+  _dragoverHandler = (e) => {
+    if (!dragState) return;
+
+    const slotEl = e.target.closest('.planner-slot');
+    if (!slotEl) return;
+
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    // Add visual highlight if not already present
+    if (!slotEl.classList.contains('planner-slot--drop-over')) {
+      // Clear previous highlights first
+      container.querySelectorAll('.planner-slot--drop-over').forEach(el => {
+        el.classList.remove('planner-slot--drop-over');
+      });
+      slotEl.classList.add('planner-slot--drop-over');
+    }
+  };
+
+  _dragleaveHandler = (e) => {
+    const slotEl = e.target.closest('.planner-slot');
+    if (!slotEl) return;
+
+    // Only remove highlight if we're actually leaving the slot (not entering a child)
+    const relatedSlot = e.relatedTarget ? e.relatedTarget.closest('.planner-slot') : null;
+    if (relatedSlot !== slotEl) {
+      slotEl.classList.remove('planner-slot--drop-over');
+    }
+  };
+
+  _dropHandler = async (e) => {
+    e.preventDefault();
+    if (!dragState) throw new Error('drop handler fired but dragState is null');
+
+    const slotEl = e.target.closest('.planner-slot');
+    if (!slotEl) throw new Error('drop handler: could not find target .planner-slot');
+
+    const toDayKey = slotEl.dataset.day;
+    const toSlotName = slotEl.dataset.slot;
+    if (!toDayKey || !toSlotName) throw new Error(`drop handler: target slot missing data-day="${toDayKey}" or data-slot="${toSlotName}"`);
+
+    // Clear visual state
+    container.querySelectorAll('.planner-slot--drop-over').forEach(el => {
+      el.classList.remove('planner-slot--drop-over');
+    });
+
+    const { fromDayKey, fromSlotName } = dragState;
+    dragState = null;
+
+    await moveOrSwapRecipe(fromDayKey, fromSlotName, toDayKey, toSlotName);
+  };
+
+  container.addEventListener('dragstart', _dragstartHandler);
+  container.addEventListener('dragend', _dragendHandler);
+  container.addEventListener('dragover', _dragoverHandler);
+  container.addEventListener('dragleave', _dragleaveHandler);
+  container.addEventListener('drop', _dropHandler);
 
   _clickHandler = async (e) => {
     const target = e.target;
