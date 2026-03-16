@@ -94,6 +94,7 @@ function renderPreviewView(recipe) {
   const instructions = recipe.instructions || [];
   const totals = recipe.totals || {};
   const perServing = recipe.per_serving || {};
+  const parseWarnings = recipe.parse_warnings || [];
   const errors = recipe.lookup_errors || [];
 
   const ingredientRows = ingredients.map((ing, idx) => `
@@ -106,6 +107,17 @@ function renderPreviewView(recipe) {
       <td style="text-align:right;font-size:0.85rem;">${ing.fiber ?? '-'}g</td>
     </tr>
   `).join('');
+
+  const parseWarningHTML = parseWarnings.length > 0 ? `
+    <div class="card" style="border-left:3px solid var(--color-accent);margin-bottom:1rem;">
+      <h4 style="margin-bottom:0.5rem;">Parse Warnings</h4>
+      ${parseWarnings.map(w => `
+        <div style="margin-bottom:0.5rem;font-size:0.85rem;">
+          ${escapeHTML(w.message)}
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
 
   const errorHTML = errors.length > 0 ? `
     <div class="card" style="border-left:3px solid var(--color-warning);margin-bottom:1rem;">
@@ -130,6 +142,7 @@ function renderPreviewView(recipe) {
         <button class="btn btn-secondary btn-sm" id="back-to-paste">Back</button>
       </div>
 
+      ${parseWarningHTML}
       ${errorHTML}
 
       <div class="card" style="margin-bottom:1rem;">

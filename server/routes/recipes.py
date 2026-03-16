@@ -43,11 +43,22 @@ def parse_recipe():
     except Exception as e:
         return jsonify({'error': f'Failed to parse recipe: {str(e)}'}), 500
 
+    parsed_ingredients = parsed.get('ingredients', [])
+    if not parsed_ingredients:
+        return jsonify({'error': 'Failed to parse recipe: no ingredients were detected'}), 500
+
+    parse_warnings = []
+    if not (parsed.get('description') or '').strip():
+        parse_warnings.append({
+            'field': 'description',
+            'message': 'No description was detected. You can add one before saving.',
+        })
+
     # Step 2: USDA lookup for each ingredient (auto-splits blends)
     enriched_ingredients = []
     lookup_errors = []
 
-    for ing in parsed.get('ingredients', []):
+    for ing in parsed_ingredients:
         try:
             expanded = expand_ingredient(ing)
             enriched_ingredients.extend(expanded)
@@ -83,6 +94,7 @@ def parse_recipe():
         'main_protein': parsed.get('main_protein', ''),
         'totals': totals,
         'per_serving': per_serving,
+        'parse_warnings': parse_warnings,
         'lookup_errors': lookup_errors,
     }
 

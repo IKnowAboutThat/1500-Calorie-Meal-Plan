@@ -2,7 +2,7 @@
 
 import os
 import sqlite3
-from config import DB_PATH
+from config import ALLOW_EMPTY_DB, DB_PATH
 
 SCHEMA_SQL = """
 -- Canonical ingredients with USDA nutritional data
@@ -158,7 +158,7 @@ def init_db():
     conn = get_connection()
     if db_exists:
         count = conn.execute("SELECT COUNT(*) FROM recipes").fetchone()[0]
-        if count == 0:
+        if count == 0 and not ALLOW_EMPTY_DB:
             conn.close()
             raise RuntimeError(
                 f"Database at {DB_PATH} exists but has 0 recipes. "

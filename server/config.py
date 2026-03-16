@@ -13,7 +13,9 @@ if _env_path.exists():
             os.environ.setdefault(key.strip(), value.strip())
 
 # Database
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'recipes.db')
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'recipes.db')
+DB_PATH = os.environ.get('RECIPE_DB_PATH', DEFAULT_DB_PATH)
+ALLOW_EMPTY_DB = os.environ.get('ALLOW_EMPTY_DB') == '1'
 
 # USDA FoodData Central API
 USDA_API_BASE = 'https://api.nal.usda.gov/fdc/v1/'
