@@ -8,6 +8,7 @@ import os
 APP_DIR = os.path.join(os.path.dirname(__file__), '..', 'app')
 
 app = Flask(__name__, static_folder=APP_DIR, static_url_path='')
+app.url_map.strict_slashes = False
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB for image uploads
 CORS(app, origins="*")
 

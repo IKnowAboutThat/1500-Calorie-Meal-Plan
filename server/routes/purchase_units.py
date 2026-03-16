@@ -9,7 +9,7 @@ from models.purchase_unit import (
 purchase_units_bp = Blueprint("purchase_units", __name__)
 
 
-@purchase_units_bp.route("", methods=["GET"])
+@purchase_units_bp.route("/", methods=["GET"])
 def list_all():
     """Return all purchase units (optionally filter by ingredient_id)."""
     ingredient_id = request.args.get("ingredient_id", type=int)
@@ -18,7 +18,7 @@ def list_all():
     return jsonify(get_all_purchase_units())
 
 
-@purchase_units_bp.route("", methods=["POST"])
+@purchase_units_bp.route("/", methods=["POST"])
 def create():
     """Create a new purchase unit."""
     data = request.get_json(force=True)

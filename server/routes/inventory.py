@@ -9,7 +9,7 @@ from models.inventory import (
 inventory_bp = Blueprint("inventory", __name__)
 
 
-@inventory_bp.route("", methods=["GET"])
+@inventory_bp.route("/", methods=["GET"])
 def list_inventory():
     """Return all inventory items."""
     return jsonify(get_all_inventory())
@@ -24,7 +24,7 @@ def get_item(item_id):
     return jsonify(item)
 
 
-@inventory_bp.route("", methods=["POST"])
+@inventory_bp.route("/", methods=["POST"])
 def create_item():
     """Add an item to inventory."""
     data = request.get_json(force=True)

@@ -2,7 +2,7 @@
 
 import os
 import sqlite3
-from config import DB_PATH
+from config import ALLOW_EMPTY_DB, DB_PATH
 
 SCHEMA_SQL = """
 -- Canonical ingredients with USDA nutritional data
@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS recipe_ingredients (
     ingredient_id INTEGER NOT NULL REFERENCES ingredients(id),
     amount REAL NOT NULL,
     unit TEXT DEFAULT 'g',
-    sort_order INTEGER DEFAULT 0
+    sort_order INTEGER DEFAULT 0,
+    section TEXT
 );
 
 -- Tags (flat entities)
@@ -157,7 +158,7 @@ def init_db():
     conn = get_connection()
     if db_exists:
         count = conn.execute("SELECT COUNT(*) FROM recipes").fetchone()[0]
-        if count == 0:
+        if count == 0 and not ALLOW_EMPTY_DB:
             conn.close()
             raise RuntimeError(
                 f"Database at {DB_PATH} exists but has 0 recipes. "
@@ -167,6 +168,14 @@ def init_db():
         _maybe_backup(DB_PATH)
     conn.executescript(SCHEMA_SQL)
     conn.commit()
+
+    # Migration: add section column if it doesn't exist
+    try:
+        conn.execute("ALTER TABLE recipe_ingredients ADD COLUMN section TEXT")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
+
     conn.close()
 
 

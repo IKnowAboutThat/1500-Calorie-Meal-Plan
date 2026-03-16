@@ -103,18 +103,25 @@ export function renderScaledIngredientTable(recipe, scaleFactor) {
   const isScaled = scaleFactor !== 1;
   const rowClass = isScaled ? ' class="scaled-row"' : '';
 
-  const rows = scaled.ingredients
-    .map(
-      ing =>
-        `    <tr${rowClass}>
-      <td>${ing.name}</td>
+  let rows = '';
+  let currentSection = null;
+  for (const ing of scaled.ingredients) {
+    if (ing.section !== currentSection) {
+      currentSection = ing.section;
+      if (currentSection) {
+        rows += `    <tr class="ingredient-section-header">
+      <td colspan="5"><h4 style="margin:0.5rem 0 0.25rem;font-size:0.95rem;">${ing.section}</h4></td>
+    </tr>\n`;
+      }
+    }
+    rows += `    <tr${rowClass}${ing.section ? ' style="font-size:0.9rem;opacity:0.85;"' : ''}>
+      <td>${ing.section ? '&ensp;' : ''}${ing.name}</td>
       <td>${ing.amount}${ing.unit}</td>
       <td>${ing.calories}</td>
       <td>${ing.protein}g</td>
       <td>${ing.fiber}g</td>
-    </tr>`
-    )
-    .join('\n');
+    </tr>\n`;
+  }
 
   // Inline style fallback for the scaled-row highlight
   const inlineStyle = isScaled

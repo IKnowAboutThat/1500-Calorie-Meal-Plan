@@ -4,10 +4,12 @@
  * All functions return promises. Base URL is configurable.
  */
 
-const API_BASE = `${window.location.protocol}//${window.location.hostname}:5001/api`;
+const API_BASE = 'http://127.0.0.1:5001/api';
 
 async function _fetch(path, options = {}) {
-  const url = `${API_BASE}${path}`;
+  // Ensure trailing slash to avoid Flask redirects (which break CORS preflight)
+  const normalizedPath = path.includes('?') ? path : (path.endsWith('/') ? path : path + '/');
+  const url = `${API_BASE}${normalizedPath}`;
   const resp = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,

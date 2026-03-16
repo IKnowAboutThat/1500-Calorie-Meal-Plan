@@ -1,10 +1,9 @@
 """Claude Agent SDK integration for parsing raw recipe text into structured data."""
 
-import json
 import os
-import re
+
 import anyio
-from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
 SYSTEM_PROMPT = """You are a recipe parsing assistant. Given raw recipe text, extract structured data and return it as JSON.
 
@@ -45,10 +44,171 @@ Rules:
 - If no instructions are provided, return an empty array
 - Return ONLY the JSON object, no markdown fences or explanation"""
 
+RECIPE_JSON_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "name",
+        "description",
+        "servings",
+        "ingredients",
+        "instructions",
+        "prep_time_min",
+        "cook_time_min",
+        "marinate_time_min",
+        "cuisine",
+        "meal_type",
+        "main_protein",
+    ],
+    "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "servings": {"type": "integer", "minimum": 1},
+        "ingredients": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["name", "amount", "unit", "grams_equivalent"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "amount": {"type": "number"},
+                    "unit": {"type": "string"},
+                    "grams_equivalent": {"type": "number"},
+                },
+            },
+        },
+        "instructions": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "prep_time_min": {"type": ["integer", "null"], "minimum": 0},
+        "cook_time_min": {"type": ["integer", "null"], "minimum": 0},
+        "marinate_time_min": {"type": ["integer", "null"], "minimum": 0},
+        "cuisine": {"type": "string"},
+        "meal_type": {"type": "string", "enum": ["meal", "snack"]},
+        "main_protein": {"type": "string"},
+    },
+}
+
+RECIPE_OUTPUT_FORMAT = {
+    "type": "json_schema",
+    "name": "recipe_parse",
+    "schema": RECIPE_JSON_SCHEMA,
+}
+
+
+def _coerce_int(value, default=None, minimum=None):
+    """Convert a value to int when possible, otherwise return the default."""
+    if value in (None, ""):
+        return default
+    try:
+        value = int(round(float(value)))
+    except (TypeError, ValueError):
+        return default
+    if minimum is not None and value < minimum:
+        return minimum
+    return value
+
+
+class RecipeParseError(RuntimeError):
+    """Raised when Claude does not return a valid structured recipe."""
+
+
+def _expect_type(value, expected_type, field_name):
+    """Require a value to have the expected type."""
+    if not isinstance(value, expected_type):
+        raise RecipeParseError(f"Invalid parser output: '{field_name}' must be {expected_type.__name__}")
+    return value
+
+
+def _normalize_parsed_recipe(data):
+    """Validate structured parser output into the shape the rest of the app expects."""
+    recipe = _expect_type(data, dict, "recipe")
+    normalized_ingredients = []
+
+    ingredients = _expect_type(recipe.get("ingredients"), list, "ingredients")
+    for idx, ing in enumerate(ingredients):
+        ing = _expect_type(ing, dict, f"ingredients[{idx}]")
+        name = str(ing.get("name", "")).strip()
+        if not name:
+            raise RecipeParseError(f"Invalid parser output: ingredients[{idx}].name is required")
+
+        try:
+            amount = float(ing.get("amount"))
+            grams = float(ing.get("grams_equivalent"))
+        except (TypeError, ValueError):
+            raise RecipeParseError(
+                f"Invalid parser output: ingredients[{idx}] amount and grams_equivalent must be numeric"
+            ) from None
+
+        unit = str(ing.get("unit", "")).strip()
+        if not unit:
+            raise RecipeParseError(f"Invalid parser output: ingredients[{idx}].unit is required")
+
+        normalized_ingredients.append({
+            "name": name,
+            "amount": amount,
+            "unit": unit,
+            "grams_equivalent": grams,
+        })
+
+    instructions = _expect_type(recipe.get("instructions"), list, "instructions")
+    normalized_instructions = []
+    for idx, step in enumerate(instructions):
+        if not isinstance(step, str):
+            raise RecipeParseError(f"Invalid parser output: instructions[{idx}] must be a string")
+        step = step.strip()
+        if step:
+            normalized_instructions.append(step)
+
+    servings = _coerce_int(recipe.get("servings"), default=None, minimum=1)
+    if servings is None:
+        raise RecipeParseError("Invalid parser output: 'servings' must be a positive integer")
+
+    prep_time = _coerce_int(recipe.get("prep_time_min"), default=None, minimum=0)
+    cook_time = _coerce_int(recipe.get("cook_time_min"), default=None, minimum=0)
+    marinate_time = _coerce_int(recipe.get("marinate_time_min"), default=None, minimum=0)
+
+    meal_type = str(recipe.get("meal_type", "")).strip().lower()
+    if meal_type not in {"meal", "snack"}:
+        raise RecipeParseError("Invalid parser output: 'meal_type' must be 'meal' or 'snack'")
+
+    return {
+        "name": str(recipe.get("name", "")).strip(),
+        "description": str(recipe.get("description", "") or "").strip(),
+        "servings": servings,
+        "ingredients": normalized_ingredients,
+        "instructions": normalized_instructions,
+        "prep_time_min": prep_time,
+        "cook_time_min": cook_time,
+        "marinate_time_min": marinate_time,
+        "cuisine": str(recipe.get("cuisine", "") or "").strip(),
+        "meal_type": meal_type,
+        "main_protein": str(recipe.get("main_protein", "") or "").strip(),
+    }
+
+
+def _extract_structured_result(message, context):
+    """Return structured output or fail loudly with parser context."""
+    if message.is_error:
+        raise RecipeParseError(
+            f"{context} failed: subtype={message.subtype}, stop_reason={message.stop_reason}, result={message.result!r}"
+        )
+    if message.subtype != "success":
+        raise RecipeParseError(
+            f"{context} did not complete successfully: subtype={message.subtype}, stop_reason={message.stop_reason}"
+        )
+    if message.structured_output is None:
+        raise RecipeParseError(
+            f"{context} returned no structured_output; raw result was {message.result!r}"
+        )
+    return message.structured_output
+
 
 async def _parse_recipe_async(text):
     """Async implementation of recipe parsing using Claude Agent SDK."""
-    result_text = ""
+    last_result = None
     oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
     env = {"CLAUDE_CODE_OAUTH_TOKEN": oauth_token} if oauth_token else {}
 
@@ -58,25 +218,20 @@ async def _parse_recipe_async(text):
             system_prompt=SYSTEM_PROMPT,
             allowed_tools=[],
             env=env,
+            output_format=RECIPE_OUTPUT_FORMAT,
         )
     ):
         if isinstance(message, ResultMessage):
-            result_text = message.result
+            last_result = message
 
-    if not result_text:
+    if last_result is None:
         raise RuntimeError("No response from Claude agent")
-
-    # Strip markdown code fences if present
-    result_text = re.sub(r'^```(?:json)?\s*\n?', '', result_text, flags=re.MULTILINE)
-    result_text = re.sub(r'\n?```\s*$', '', result_text, flags=re.MULTILINE)
-    result_text = result_text.strip()
-
-    return json.loads(result_text)
+    return _normalize_parsed_recipe(_extract_structured_result(last_result, "Recipe parse"))
 
 
 async def _parse_recipe_image_async(image_base64, image_media_type, text):
     """Async implementation of recipe image parsing using Claude Agent SDK."""
-    result_text = ""
+    last_result = None
     oauth_token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
     env = {"CLAUDE_CODE_OAUTH_TOKEN": oauth_token} if oauth_token else {}
 
@@ -108,20 +263,15 @@ async def _parse_recipe_image_async(image_base64, image_media_type, text):
             system_prompt=SYSTEM_PROMPT,
             allowed_tools=[],
             env=env,
+            output_format=RECIPE_OUTPUT_FORMAT,
         ),
     ):
         if isinstance(message, ResultMessage):
-            result_text = message.result
+            last_result = message
 
-    if not result_text:
+    if last_result is None:
         raise RuntimeError("No response from Claude agent")
-
-    # Strip markdown code fences if present
-    result_text = re.sub(r'^```(?:json)?\s*\n?', '', result_text, flags=re.MULTILINE)
-    result_text = re.sub(r'\n?```\s*$', '', result_text, flags=re.MULTILINE)
-    result_text = result_text.strip()
-
-    return json.loads(result_text)
+    return _normalize_parsed_recipe(_extract_structured_result(last_result, "Image recipe parse"))
 
 
 def parse_recipe_text(text):

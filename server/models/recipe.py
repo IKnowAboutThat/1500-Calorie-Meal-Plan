@@ -49,7 +49,7 @@ def _enrich_recipe(row, conn):
 
     # Get ingredients with nutrition
     ing_rows = conn.execute("""
-        SELECT ri.amount, ri.unit, ri.sort_order,
+        SELECT ri.amount, ri.unit, ri.sort_order, ri.section,
                i.id as ingredient_id, i.name, i.calories_per_100g,
                i.protein_per_100g, i.fat_per_100g, i.carbs_per_100g,
                i.fiber_per_100g, i.micronutrients, i.category
@@ -169,9 +169,9 @@ def create_recipe(data, ingredient_rows):
     # Insert recipe_ingredients
     for idx, ing in enumerate(ingredient_rows):
         conn.execute("""
-            INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit, sort_order)
-            VALUES (?, ?, ?, ?, ?)
-        """, (recipe_id, ing['ingredient_id'], ing['amount'], ing.get('unit', 'g'), ing.get('sort_order', idx)))
+            INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit, sort_order, section)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (recipe_id, ing['ingredient_id'], ing['amount'], ing.get('unit', 'g'), ing.get('sort_order', idx), ing.get('section')))
 
     # Insert tags
     for tag in data.get('tags', []):

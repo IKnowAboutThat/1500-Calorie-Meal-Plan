@@ -1,17 +1,14 @@
 """Quick API integration test."""
-import json
-import time
-import subprocess
-import sys
-import requests
-
-BASE = "http://127.0.0.1:5001/api"
-
-# Reset DB
 import os
-db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'recipes.db')
-if os.path.exists(db_path):
-    os.remove(db_path)
+import sys
+import tempfile
+
+SERVER_DIR = os.path.dirname(__file__)
+
+tmpdir = tempfile.TemporaryDirectory(prefix="meal-plan-test-")
+db_path = os.path.join(tmpdir.name, 'recipes.db')
+os.environ['RECIPE_DB_PATH'] = db_path
+os.environ['ALLOW_EMPTY_DB'] = '1'
 
 from db import init_db, get_connection
 init_db()
@@ -23,18 +20,18 @@ conn.execute("INSERT INTO ingredients (name, calories_per_100g, protein_per_100g
 conn.commit()
 conn.close()
 
-# Start server
-server = subprocess.Popen([sys.executable, "app.py"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-time.sleep(3)
+from app import app, register_blueprints
+register_blueprints()
+client = app.test_client()
 
 try:
     # Health
-    r = requests.get(f"{BASE}/health")
+    r = client.get("/api/health")
     assert r.status_code == 200, f"Health check failed: {r.status_code}"
     print("OK: Health check")
 
     # Create recipe
-    r = requests.post(f"{BASE}/recipes", json={
+    r = client.post("/api/recipes/", json={
         "name": "Test Chicken Bowl",
         "meal_type": "meal",
         "cuisine": "American",
@@ -46,8 +43,8 @@ try:
             {"ingredient_id": 2, "amount": 100, "unit": "g"},
         ]
     })
-    assert r.status_code == 201, f"Create recipe failed: {r.status_code} {r.text}"
-    recipe = r.json()
+    assert r.status_code == 201, f"Create recipe failed: {r.status_code} {r.get_data(as_text=True)}"
+    recipe = r.get_json()
     print(f"OK: Created recipe '{recipe['name']}' (id={recipe['id']})")
     print(f"    Macros: {recipe['calories']} cal, {recipe['protein']}g pro, {recipe['fat']}g fat")
 
@@ -59,54 +56,53 @@ try:
     print(f"    Calories verified: {recipe['calories']} == {expected_cal}")
 
     # Create tags
-    r = requests.post(f"{BASE}/tags", json={"name": "high-protein"})
+    r = client.post("/api/tags/", json={"name": "high-protein"})
     assert r.status_code == 201
-    tag1 = r.json()
-    r = requests.post(f"{BASE}/tags", json={"name": "dairy-free"})
+    tag1 = r.get_json()
+    r = client.post("/api/tags/", json={"name": "dairy-free"})
     assert r.status_code == 201
-    tag2 = r.json()
+    tag2 = r.get_json()
     print(f"OK: Created tags '{tag1['name']}' and '{tag2['name']}'")
 
     # Tag recipe
-    r = requests.post(f"{BASE}/recipes/1/tags", json={"tag_id": tag1['id']})
+    r = client.post("/api/recipes/1/tags/", json={"tag_id": tag1['id']})
     assert r.status_code == 201
     print("OK: Tagged recipe")
 
     # Get recipe with tags
-    r = requests.get(f"{BASE}/recipes/1")
-    recipe = r.json()
+    r = client.get("/api/recipes/1/")
+    recipe = r.get_json()
     assert len(recipe['tags']) == 1
     print(f"OK: Recipe has {len(recipe['tags'])} tag(s): {[t['tag_name'] for t in recipe['tags']]}")
 
     # Build hierarchy
-    r = requests.post(f"{BASE}/tags/hierarchy", json={"parent_tag_id": tag1['id'], "child_tag_id": tag2['id']})
+    r = client.post("/api/tags/hierarchy/", json={"parent_tag_id": tag1['id'], "child_tag_id": tag2['id']})
     assert r.status_code == 201
     print("OK: Added hierarchy link")
 
     # Cycle detection
-    r = requests.post(f"{BASE}/tags/hierarchy", json={"parent_tag_id": tag2['id'], "child_tag_id": tag1['id']})
+    r = client.post("/api/tags/hierarchy/", json={"parent_tag_id": tag2['id'], "child_tag_id": tag1['id']})
     assert r.status_code == 400
-    print(f"OK: Cycle detected: {r.json()['error']}")
+    print(f"OK: Cycle detected: {r.get_json()['error']}")
 
     # Update recipe
-    r = requests.put(f"{BASE}/recipes/1", json={"name": "Updated Chicken Bowl"})
-    assert r.json()['name'] == "Updated Chicken Bowl"
+    r = client.put("/api/recipes/1/", json={"name": "Updated Chicken Bowl"})
+    assert r.get_json()['name'] == "Updated Chicken Bowl"
     print("OK: Updated recipe name")
 
     # List ingredients
-    r = requests.get(f"{BASE}/ingredients")
-    assert len(r.json()) == 2
-    print(f"OK: Listed {len(r.json())} ingredients")
+    r = client.get("/api/ingredients/")
+    assert len(r.get_json()) == 2
+    print(f"OK: Listed {len(r.get_json())} ingredients")
 
     # Delete recipe
-    r = requests.delete(f"{BASE}/recipes/1")
+    r = client.delete("/api/recipes/1/")
     assert r.status_code == 200
-    r = requests.get(f"{BASE}/recipes/1")
+    r = client.get("/api/recipes/1/")
     assert r.status_code == 404
     print("OK: Deleted recipe and verified 404")
 
     print("\n=== ALL TESTS PASSED ===")
 
 finally:
-    server.terminate()
-    server.wait()
+    tmpdir.cleanup()

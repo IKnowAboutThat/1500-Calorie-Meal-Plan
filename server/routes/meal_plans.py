@@ -6,7 +6,7 @@ from models.meal_plan import get_plan, save_plan, delete_plan, list_plan_ids
 meal_plans_bp = Blueprint("meal_plans", __name__)
 
 
-@meal_plans_bp.route("", methods=["GET"])
+@meal_plans_bp.route("/", methods=["GET"])
 def list_plans():
     """Return all stored week IDs."""
     return jsonify(list_plan_ids())

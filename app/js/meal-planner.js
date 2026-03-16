@@ -705,30 +705,37 @@ async function removeRecipe(dayKey, slotName) {
 // Event delegation
 // ---------------------------------------------------------------------------
 
+/** Named handler so we can remove it before re-adding (prevents stacking). */
+let _clickHandler = null;
+
 /**
  * Attach all click and interaction handlers to the container using
  * event delegation for efficient, leak-free listening.
  */
 function attachEventListeners(container) {
-  container.addEventListener('click', async (e) => {
+  if (_clickHandler) {
+    container.removeEventListener('click', _clickHandler);
+  }
+
+  _clickHandler = async (e) => {
     const target = e.target;
 
     // ---- Week navigation ----
     if (target.closest('[data-action="prev-week"]')) {
       currentWeekId = getPrevWeekId(currentWeekId);
-      renderMealPlanner(container);
+      await renderMealPlanner(container);
       return;
     }
 
     if (target.closest('[data-action="next-week"]')) {
       currentWeekId = getNextWeekId(currentWeekId);
-      renderMealPlanner(container);
+      await renderMealPlanner(container);
       return;
     }
 
     if (target.closest('[data-action="today-week"]')) {
       currentWeekId = getISOWeekId(new Date());
-      renderMealPlanner(container);
+      await renderMealPlanner(container);
       return;
     }
 
@@ -738,8 +745,8 @@ function attachEventListeners(container) {
       const { renderAutoPlanner } = await import('./auto-plan.js');
       const modalContent = document.getElementById('modal-content');
       openModal('');
-      renderAutoPlanner(modalContent, currentWeekId, () => {
-        renderMealPlanner(container);
+      renderAutoPlanner(modalContent, currentWeekId, async () => {
+        await renderMealPlanner(container);
       });
       return;
     }
@@ -750,8 +757,8 @@ function attachEventListeners(container) {
       const { renderTemplatesPanel } = await import('./week-templates.js');
       const modalContent = document.getElementById('modal-content');
       openModal('');
-      renderTemplatesPanel(modalContent, currentWeekId, () => {
-        renderMealPlanner(container);
+      renderTemplatesPanel(modalContent, currentWeekId, async () => {
+        await renderMealPlanner(container);
       });
       return;
     }
@@ -793,7 +800,7 @@ function attachEventListeners(container) {
       }
 
       if (currentContainer) {
-        renderMealPlanner(currentContainer);
+        await renderMealPlanner(currentContainer);
       }
 
       const { showToast } = await getApp();
@@ -821,7 +828,7 @@ function attachEventListeners(container) {
       e.stopPropagation();
       const dayKey = removeBtn.dataset.day;
       const slotName = removeBtn.dataset.slot;
-      removeRecipe(dayKey, slotName);
+      await removeRecipe(dayKey, slotName);
       return;
     }
 
@@ -855,5 +862,7 @@ function attachEventListeners(container) {
       openRecipePicker(dayKey, slotName);
       return;
     }
-  });
+  };
+
+  container.addEventListener('click', _clickHandler);
 }
