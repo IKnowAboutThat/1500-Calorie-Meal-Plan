@@ -5,7 +5,6 @@
  * ISO-week utilities, and global state access.
  */
 
-import { adrenalCocktail } from './data/recipes.js';
 import * as store from './store.js';
 import { loadRecipes, getRecipes } from './recipe-cache.js';
 
@@ -68,6 +67,12 @@ async function loadPage(page, container) {
         renderTagManager(container);
         break;
       }
+      case 'edit-recipe': {
+        const recipeId = location.hash.replace(/^#edit-recipe\//, '');
+        const { renderEditRecipe } = await import('./edit-recipe.js');
+        renderEditRecipe(container, recipeId);
+        break;
+      }
       default: {
         container.innerHTML = `<div class="empty-state"><p>Page not found: ${page}</p></div>`;
       }
@@ -88,9 +93,11 @@ async function loadPage(page, container) {
 
 /**
  * Read the current hash and return the sanitised page name.
+ * For parameterised routes like #edit-recipe/123, returns the base page name.
  */
 function getPageFromHash() {
   const raw = location.hash.replace(/^#/, '').trim();
+  if (raw.startsWith('edit-recipe/')) return 'edit-recipe';
   return VALID_PAGES.includes(raw) ? raw : DEFAULT_PAGE;
 }
 
@@ -348,10 +355,10 @@ export function formatDate(date) {
 /**
  * Returns the core application data objects.
  *
- * @returns {{ recipes: object[], mealPlan: object, adrenalCocktail: object }}
+ * @returns {{ recipes: object[] }}
  */
 export function getAppState() {
-  return { recipes: getRecipes(), adrenalCocktail };
+  return { recipes: getRecipes() };
 }
 
 // ---------------------------------------------------------------------------

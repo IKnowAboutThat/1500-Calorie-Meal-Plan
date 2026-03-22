@@ -2734,14 +2734,3 @@ export const ingredientCategories = {
   "lemongrass, kaffir lime leaf, galangal, chili, light coconut milk 30ml": "Pantry / Spices",
 };
 
-export const adrenalCocktail = {
-  name: "Adrenal Cocktail",
-  calories: 160,
-  protein: 4,
-  fat: 5,
-  carbs: 12,
-  fiber: 0,
-  perDay: 2,
-  totalCalories: 320,
-  totalProtein: 8,
-};

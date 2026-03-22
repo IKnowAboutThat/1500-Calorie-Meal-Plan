@@ -5,7 +5,6 @@
  * Exports a single render function consumed by the app router.
  */
 
-import { adrenalCocktail } from './data/recipes.js';
 import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
@@ -159,9 +158,51 @@ function createEmptyPlan(weekId) {
       date: dateStr,
       phase,
       slots: mealSlots.map(s => ({ slotName: s.name, recipeId: null })),
+      extras: [],
     };
   });
   return { weekId, days };
+}
+
+// ---------------------------------------------------------------------------
+// Extras helpers
+// ---------------------------------------------------------------------------
+
+function normalizeDayExtras(dayPlan) {
+  if (!dayPlan.extras) dayPlan.extras = [];
+  return dayPlan;
+}
+
+function getAdrenalExtra(dayPlan) {
+  normalizeDayExtras(dayPlan);
+  return dayPlan.extras.find(e => e.kind === 'adrenal') || null;
+}
+
+function setAdrenalExtra(dayPlan, recipeId, count) {
+  normalizeDayExtras(dayPlan);
+  const existing = dayPlan.extras.findIndex(e => e.kind === 'adrenal');
+  if (existing !== -1) {
+    dayPlan.extras[existing] = { kind: 'adrenal', recipeId, count };
+  } else {
+    dayPlan.extras.push({ kind: 'adrenal', recipeId, count });
+  }
+}
+
+function removeAdrenalExtra(dayPlan) {
+  normalizeDayExtras(dayPlan);
+  dayPlan.extras = dayPlan.extras.filter(e => e.kind !== 'adrenal');
+}
+
+function applyAdrenalToWeek(plan, recipeId, count) {
+  for (const key of DAY_KEYS) {
+    setAdrenalExtra(plan.days[key], recipeId, count);
+  }
+}
+
+function removeAdrenalFromWeek(plan) {
+  for (const key of DAY_KEYS) {
+    removeAdrenalExtra(plan.days[key]);
+  }
 }
 
 /**
@@ -199,10 +240,16 @@ function computeDayMacros(dayPlan) {
     }
   }
 
-  // Add adrenal cocktails
-  calories += adrenalCocktail.totalCalories;
-  protein += adrenalCocktail.totalProtein;
-  // fiber from adrenal cocktails is 0
+  // Add extras (adrenal cocktails, etc.)
+  for (const extra of (dayPlan.extras || [])) {
+    const extraRecipe = getRecipeById(extra.recipeId);
+    if (extraRecipe) {
+      const count = extra.count || 1;
+      calories += extraRecipe.calories * count;
+      protein += extraRecipe.protein * count;
+      fiber += extraRecipe.fiber * count;
+    }
+  }
 
   return { calories, protein, fiber };
 }
@@ -324,6 +371,8 @@ function renderWeekNav(weekId, dates) {
     <div class="planner-toolbar" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; justify-content: flex-end;">
       <button class="btn btn-sm btn-primary" data-action="auto-plan">Auto Plan</button>
       <button class="btn btn-sm btn-secondary" data-action="templates">Templates</button>
+      <button class="btn btn-sm btn-secondary" data-action="apply-adrenal">Apply Adrenal Cocktails</button>
+      <button class="btn btn-sm btn-secondary" data-action="remove-adrenal">Remove Adrenal Cocktails</button>
     </div>
   `;
 }
@@ -347,6 +396,7 @@ function renderDay(dayKey, dayIndex, plan, date) {
       <div class="planner-day__slots">
         ${dayPlan.slots.map(slot => renderSlot(dayKey, slot)).join('')}
       </div>
+      ${renderDayExtras(dayPlan)}
       <div class="planner-day__macros">
         ${renderDayMacros(macros)}
       </div>
@@ -389,6 +439,41 @@ function renderSlot(dayKey, slot) {
           <span class="badge badge-fiber">${fmtNum(recipe.fiber, 1)}g F</span>
         </div>
       </div>
+    </div>
+  `;
+}
+
+/**
+ * Render the extras section for a day (adrenal cocktails, etc.).
+ */
+function renderDayExtras(dayPlan) {
+  const extras = dayPlan.extras || [];
+  if (extras.length === 0) return '';
+
+  const items = extras.map(extra => {
+    if (extra.kind === 'adrenal') {
+      const recipe = getRecipeById(extra.recipeId);
+      if (!recipe) return '';
+      const count = extra.count || 1;
+      const totalCal = Math.round(recipe.calories * count);
+      const totalPro = (recipe.protein * count).toFixed(1);
+      return `
+        <div class="planner-day__extras-item" data-action="view-recipe" data-recipe-id="${recipe.id}" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.5rem; cursor: pointer; border-radius: var(--radius); transition: background-color var(--transition);" onmouseover="this.style.backgroundColor='rgba(74,124,89,0.1)'" onmouseout="this.style.backgroundColor=''">
+          <span style="font-size: 0.8rem; color: var(--color-text-secondary);">${recipe.name} &times;${count}</span>
+          <span class="badge badge-cal" style="font-size: 0.7rem; padding: 0.1rem 0.35rem;">${totalCal} cal</span>
+          <span class="badge badge-protein" style="font-size: 0.7rem; padding: 0.1rem 0.35rem;">${totalPro}g P</span>
+        </div>
+      `;
+    }
+    return '';
+  }).filter(Boolean).join('');
+
+  if (!items) return '';
+
+  return `
+    <div class="planner-day__extras" style="padding: 0.25rem 0; border-top: 1px dashed var(--color-border); margin-top: 0.25rem;">
+      <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-secondary); padding: 0.125rem 0.5rem; font-weight: 600;">Supplements</div>
+      ${items}
     </div>
   `;
 }
@@ -936,6 +1021,35 @@ function attachEventListeners(container) {
       renderTemplatesPanel(modalContent, currentWeekId, async () => {
         await renderMealPlanner(container);
       });
+      return;
+    }
+
+    // ---- Apply Adrenal Cocktails ----
+    if (target.closest('[data-action="apply-adrenal"]')) {
+      const settings = store.getSettings();
+      const recipeId = settings.adrenalRecipeId;
+      const count = settings.adrenalCountPerDay || 2;
+      const { showToast } = await getApp();
+      if (!recipeId) {
+        showToast('Select an adrenal cocktail recipe in Settings first', 'warning');
+        return;
+      }
+      const plan = await loadOrCreatePlan(currentWeekId);
+      applyAdrenalToWeek(plan, recipeId, count);
+      await store.saveWeekPlan(currentWeekId, plan);
+      await renderMealPlanner(container);
+      showToast('Adrenal cocktails applied to all days', 'success');
+      return;
+    }
+
+    // ---- Remove Adrenal Cocktails ----
+    if (target.closest('[data-action="remove-adrenal"]')) {
+      const plan = await loadOrCreatePlan(currentWeekId);
+      removeAdrenalFromWeek(plan);
+      await store.saveWeekPlan(currentWeekId, plan);
+      await renderMealPlanner(container);
+      const { showToast } = await getApp();
+      showToast('Adrenal cocktails removed from all days', 'info');
       return;
     }
 

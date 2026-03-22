@@ -57,6 +57,11 @@ export async function saveRecipe(recipe) {
   });
 }
 
+/**
+ * Update a recipe. `data` may include an optional `ingredients` array
+ * of { ingredient_id, amount, unit } objects to replace the recipe's
+ * current ingredient list.
+ */
 export async function updateRecipe(id, data) {
   return _fetch(`/recipes/${id}`, {
     method: 'PUT',
@@ -94,6 +99,24 @@ export async function getIngredients() {
 
 export async function getIngredient(id) {
   return _fetch(`/ingredients/${id}`);
+}
+
+export async function lookupIngredient(searchTerm, amount, unit) {
+  return _fetch('/ingredients/lookup', {
+    method: 'POST',
+    body: JSON.stringify({ search_term: searchTerm, amount, unit }),
+  });
+}
+
+export async function createIngredient(data) {
+  return _fetch('/ingredients', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function searchIngredients(query) {
+  return _fetch(`/ingredients/search?q=${encodeURIComponent(query)}`);
 }
 
 // ---- Tags ----

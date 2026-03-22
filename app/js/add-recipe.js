@@ -1,11 +1,20 @@
 /**
- * add-recipe.js - Paste-to-parse recipe creation UI.
+ * add-recipe.js - Paste-to-parse recipe creation UI with full draft editor.
  *
- * Flow: Paste text -> Parse with AI -> Preview/edit -> Save
+ * Flow: Paste text -> Parse with AI -> Draft editor (edit fields, resolve
+ *       unresolved ingredients, edit instructions) -> Save
  */
 
-import * as api from './api.js';
+import { parseRecipe, saveRecipe as apiSaveRecipe, lookupIngredient, searchIngredients, createIngredient } from './api.js';
 import { reloadRecipes } from './recipe-cache.js';
+import {
+  renderIngredientEditor,
+  renderInstructionEditor,
+  renderResolutionPanel,
+  renderNutritionSummary,
+  computeIngredientMacros,
+  attachEditorEvents,
+} from './recipe-editor-components.js';
 
 // Dynamic import for app.js (toast, modal)
 async function getApp() {
@@ -23,12 +32,96 @@ function escapeHTML(str) {
 // ============================================================
 
 let state = {
-  view: 'paste', // 'paste' | 'loading' | 'preview' | 'saving'
+  view: 'paste',        // 'paste' | 'loading' | 'preview' | 'saving'
   parsedRecipe: null,
+  draftRecipe: null,     // canonical editable state
   lookupErrors: [],
-  imageData: null,   // base64 string (no prefix)
-  imageType: null,    // e.g. 'image/png'
+  imageData: null,       // base64 string (no prefix)
+  imageType: null,       // e.g. 'image/png'
+  resolvingIndex: null,  // which ingredient row is being resolved (null = none)
 };
+
+// Reference to current container for re-renders
+let _container = null;
+
+// ============================================================
+// Draft helpers
+// ============================================================
+
+function buildDraftFromParsed(parsed) {
+  const ingredients = (parsed.ingredients || []).map(ing => ({
+    name: ing.name || '',
+    amount: ing.amount ?? 0,
+    unit: ing.unit || 'g',
+    section: ing.section || '',
+    ingredient_id: ing.ingredient_id || null,
+    resolved: ing.resolved !== false && !!ing.ingredient_id,
+    resolution_error: ing.resolution_error || null,
+    calories_per_100g: ing.calories_per_100g ?? null,
+    protein_per_100g: ing.protein_per_100g ?? null,
+    fat_per_100g: ing.fat_per_100g ?? null,
+    carbs_per_100g: ing.carbs_per_100g ?? null,
+    fiber_per_100g: ing.fiber_per_100g ?? null,
+    calories: ing.calories ?? null,
+    protein: ing.protein ?? null,
+    fat: ing.fat ?? null,
+    carbs: ing.carbs ?? null,
+    fiber: ing.fiber ?? null,
+  }));
+
+  // Also fold in lookup_errors as unresolved ingredients if they aren't already present
+  const existingNames = new Set(ingredients.map(i => i.name.toLowerCase()));
+  for (const err of (parsed.lookup_errors || [])) {
+    if (!existingNames.has((err.ingredient || '').toLowerCase())) {
+      ingredients.push({
+        name: err.ingredient || '',
+        amount: err.amount ?? 0,
+        unit: err.unit || 'g',
+        section: '',
+        ingredient_id: null,
+        resolved: false,
+        resolution_error: err.error || 'USDA lookup failed',
+        calories_per_100g: null, protein_per_100g: null, fat_per_100g: null,
+        carbs_per_100g: null, fiber_per_100g: null,
+        calories: null, protein: null, fat: null, carbs: null, fiber: null,
+      });
+    }
+  }
+
+  return {
+    name: parsed.name || '',
+    description: parsed.description || '',
+    servings: parsed.servings || 1,
+    cuisine: parsed.cuisine || '',
+    meal_type: parsed.meal_type || 'meal',
+    main_protein: parsed.main_protein || '',
+    prep_time_min: parsed.prep_time_min || null,
+    cook_time_min: parsed.cook_time_min || null,
+    phase: parsed.phase || 'standard',
+    instructions: [...(parsed.instructions || [])],
+    ingredients,
+  };
+}
+
+function recalcRowMacros(ing) {
+  if (!ing.resolved || ing.calories_per_100g == null) return;
+  const macros = computeIngredientMacros(ing);
+  ing.calories = macros.calories;
+  ing.protein = macros.protein;
+  ing.fat = macros.fat;
+  ing.carbs = macros.carbs;
+  ing.fiber = macros.fiber;
+}
+
+function blankIngredient() {
+  return {
+    name: '', amount: 0, unit: 'g', section: '',
+    ingredient_id: null, resolved: false, resolution_error: null,
+    calories_per_100g: null, protein_per_100g: null, fat_per_100g: null,
+    carbs_per_100g: null, fiber_per_100g: null,
+    calories: null, protein: null, fat: null, carbs: null, fiber: null,
+  };
+}
 
 // ============================================================
 // Render: Paste View
@@ -86,54 +179,97 @@ function renderLoadingView() {
 }
 
 // ============================================================
-// Render: Preview View
+// Render: Preview / Draft Editor View
 // ============================================================
 
-function renderPreviewView(recipe) {
-  const ingredients = recipe.ingredients || [];
-  const instructions = recipe.instructions || [];
-  const totals = recipe.totals || {};
-  const perServing = recipe.per_serving || {};
-  const parseWarnings = recipe.parse_warnings || [];
-  const errors = recipe.lookup_errors || [];
+function renderPreviewView() {
+  const draft = state.draftRecipe;
+  if (!draft) return '<p>No recipe data.</p>';
 
-  const ingredientRows = ingredients.map((ing, idx) => `
-    <tr>
-      <td><input type="text" class="ing-name" data-idx="${idx}" value="${escapeHTML(ing.name)}" style="width:100%;border:1px solid var(--color-border);border-radius:var(--radius);padding:0.3rem 0.5rem;font-size:0.85rem;"></td>
-      <td><input type="number" class="ing-amount" data-idx="${idx}" value="${ing.amount}" step="1" style="width:70px;border:1px solid var(--color-border);border-radius:var(--radius);padding:0.3rem 0.5rem;font-size:0.85rem;text-align:right;"></td>
-      <td style="font-size:0.85rem;">${ing.unit || 'g'}</td>
-      <td style="text-align:right;font-size:0.85rem;">${ing.calories ?? '-'}</td>
-      <td style="text-align:right;font-size:0.85rem;">${ing.protein ?? '-'}g</td>
-      <td style="text-align:right;font-size:0.85rem;">${ing.fiber ?? '-'}g</td>
-    </tr>
-  `).join('');
+  const inputStyle = 'width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;background:var(--color-surface);';
 
+  // --- Top-level fields ---
+  const fieldsHTML = `
+    <div class="card" style="margin-bottom:1rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Name</label>
+          <input type="text" data-draft-field="name" value="${escapeHTML(draft.name)}" style="${inputStyle}">
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Servings</label>
+          <input type="number" data-draft-field="servings" value="${draft.servings}" min="1" style="${inputStyle}">
+        </div>
+      </div>
+
+      <div style="margin-top:1rem;">
+        <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Description</label>
+        <input type="text" data-draft-field="description" value="${escapeHTML(draft.description)}" style="${inputStyle}">
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:1rem;">
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Cuisine</label>
+          <input type="text" data-draft-field="cuisine" value="${escapeHTML(draft.cuisine)}" style="${inputStyle}">
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Meal Type</label>
+          <select data-draft-field="meal_type" style="${inputStyle}">
+            <option value="meal"${draft.meal_type === 'meal' ? ' selected' : ''}>Meal</option>
+            <option value="snack"${draft.meal_type === 'snack' ? ' selected' : ''}>Snack</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Main Protein</label>
+          <input type="text" data-draft-field="main_protein" value="${escapeHTML(draft.main_protein)}" style="${inputStyle}">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:1rem;">
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Prep Time (min)</label>
+          <input type="number" data-draft-field="prep_time_min" value="${draft.prep_time_min || ''}" style="${inputStyle}">
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Cook Time (min)</label>
+          <input type="number" data-draft-field="cook_time_min" value="${draft.cook_time_min || ''}" style="${inputStyle}">
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Phase</label>
+          <select data-draft-field="phase" style="${inputStyle}">
+            <option value="standard"${draft.phase === 'standard' ? ' selected' : ''}>Standard</option>
+            <option value="luteal"${draft.phase === 'luteal' ? ' selected' : ''}>Luteal</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // --- Shared components ---
+  const ingredientsHTML = renderIngredientEditor(draft.ingredients, {
+    resolvingIndex: state.resolvingIndex,
+    editable: true,
+    servings: draft.servings,
+  });
+
+  const nutritionHTML = renderNutritionSummary(draft.ingredients, draft.servings);
+
+  const instructionsHTML = renderInstructionEditor(draft.instructions, {
+    editable: true,
+  });
+
+  // --- Parse warnings ---
+  const parseWarnings = state.parsedRecipe?.parse_warnings || [];
   const parseWarningHTML = parseWarnings.length > 0 ? `
     <div class="card" style="border-left:3px solid var(--color-accent);margin-bottom:1rem;">
       <h4 style="margin-bottom:0.5rem;">Parse Warnings</h4>
       ${parseWarnings.map(w => `
         <div style="margin-bottom:0.5rem;font-size:0.85rem;">
-          ${escapeHTML(w.message)}
+          ${escapeHTML(w.message || w)}
         </div>
       `).join('')}
     </div>
   ` : '';
-
-  const errorHTML = errors.length > 0 ? `
-    <div class="card" style="border-left:3px solid var(--color-warning);margin-bottom:1rem;">
-      <h4 style="color:var(--color-warning);margin-bottom:0.5rem;">Ingredient Lookup Warnings</h4>
-      ${errors.map(e => `
-        <div style="margin-bottom:0.5rem;font-size:0.85rem;">
-          <strong>${escapeHTML(e.ingredient)}</strong> — not found in USDA database
-          <br><span class="text-secondary">Searched: ${e.searches_tried.map(s => `"${escapeHTML(s)}"`).join(', ')}</span>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
-
-  const instructionsList = instructions.map((step, i) => `
-    <li style="margin-bottom:0.5rem;">${escapeHTML(step)}</li>
-  `).join('');
 
   return `
     <div class="add-recipe-preview">
@@ -143,130 +279,10 @@ function renderPreviewView(recipe) {
       </div>
 
       ${parseWarningHTML}
-      ${errorHTML}
-
-      <div class="card" style="margin-bottom:1rem;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Name</label>
-            <input type="text" id="recipe-name" value="${escapeHTML(recipe.name || '')}" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-          </div>
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Servings</label>
-            <input type="number" id="recipe-servings" value="${recipe.servings || 1}" min="1" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-          </div>
-        </div>
-
-        <div style="margin-top:1rem;">
-          <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Description</label>
-          <input type="text" id="recipe-description" value="${escapeHTML(recipe.description || '')}" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:1rem;">
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Cuisine</label>
-            <input type="text" id="recipe-cuisine" value="${escapeHTML(recipe.cuisine || '')}" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-          </div>
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Meal Type</label>
-            <select id="recipe-meal-type" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-              <option value="meal"${recipe.meal_type === 'meal' ? ' selected' : ''}>Meal</option>
-              <option value="snack"${recipe.meal_type === 'snack' ? ' selected' : ''}>Snack</option>
-            </select>
-          </div>
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Main Protein</label>
-            <input type="text" id="recipe-main-protein" value="${escapeHTML(recipe.main_protein || '')}" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:1rem;">
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Prep Time (min)</label>
-            <input type="number" id="recipe-prep-time" value="${recipe.prep_time_min || ''}" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-          </div>
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Cook Time (min)</label>
-            <input type="number" id="recipe-cook-time" value="${recipe.cook_time_min || ''}" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-          </div>
-          <div>
-            <label style="font-size:0.8rem;color:var(--color-text-secondary);display:block;margin-bottom:0.25rem;">Phase</label>
-            <select id="recipe-phase" style="width:100%;padding:0.5rem;border:1px solid var(--color-border);border-radius:var(--radius);font-size:0.95rem;">
-              <option value="standard">Standard</option>
-              <option value="luteal">Luteal</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:1rem;">
-        <h3 style="margin-bottom:0.75rem;">Ingredients</h3>
-        <div style="overflow-x:auto;">
-          <table class="data-table" style="width:100%;">
-            <thead>
-              <tr>
-                <th>Ingredient</th>
-                <th style="width:80px;">Amount</th>
-                <th style="width:50px;">Unit</th>
-                <th style="width:60px;text-align:right;">Cal</th>
-                <th style="width:70px;text-align:right;">Protein</th>
-                <th style="width:60px;text-align:right;">Fiber</th>
-              </tr>
-            </thead>
-            <tbody id="ingredient-table-body">
-              ${ingredientRows}
-            </tbody>
-            <tfoot>
-              <tr style="font-weight:700;">
-                <td colspan="3">Total (${recipe.servings || 1} serving${(recipe.servings || 1) > 1 ? 's' : ''})</td>
-                <td style="text-align:right;">${totals.calories ?? 0}</td>
-                <td style="text-align:right;">${totals.protein ?? 0}g</td>
-                <td style="text-align:right;">${totals.fiber ?? 0}g</td>
-              </tr>
-              ${(recipe.servings || 1) > 1 ? `
-              <tr style="font-weight:600;color:var(--color-text-secondary);">
-                <td colspan="3">Per Serving</td>
-                <td style="text-align:right;">${perServing.calories ?? 0}</td>
-                <td style="text-align:right;">${perServing.protein ?? 0}g</td>
-                <td style="text-align:right;">${perServing.fiber ?? 0}g</td>
-              </tr>
-              ` : ''}
-            </tfoot>
-          </table>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:1rem;">
-        <div style="display:grid;grid-template-columns:repeat(5, 1fr);gap:1rem;text-align:center;">
-          <div>
-            <div style="font-size:1.5rem;font-weight:700;color:var(--color-macro-cal);">${perServing.calories ?? totals.calories ?? 0}</div>
-            <div style="font-size:0.75rem;color:var(--color-text-secondary);">Calories</div>
-          </div>
-          <div>
-            <div style="font-size:1.5rem;font-weight:700;color:var(--color-macro-protein);">${perServing.protein ?? totals.protein ?? 0}g</div>
-            <div style="font-size:0.75rem;color:var(--color-text-secondary);">Protein</div>
-          </div>
-          <div>
-            <div style="font-size:1.5rem;font-weight:700;">${perServing.fat ?? totals.fat ?? 0}g</div>
-            <div style="font-size:0.75rem;color:var(--color-text-secondary);">Fat</div>
-          </div>
-          <div>
-            <div style="font-size:1.5rem;font-weight:700;">${perServing.carbs ?? totals.carbs ?? 0}g</div>
-            <div style="font-size:0.75rem;color:var(--color-text-secondary);">Carbs</div>
-          </div>
-          <div>
-            <div style="font-size:1.5rem;font-weight:700;color:var(--color-macro-fiber);">${perServing.fiber ?? totals.fiber ?? 0}g</div>
-            <div style="font-size:0.75rem;color:var(--color-text-secondary);">Fiber</div>
-          </div>
-        </div>
-      </div>
-
-      ${instructions.length > 0 ? `
-      <div class="card" style="margin-bottom:1rem;">
-        <h3 style="margin-bottom:0.75rem;">Instructions</h3>
-        <ol style="padding-left:1.25rem;margin:0;">${instructionsList}</ol>
-      </div>
-      ` : ''}
+      ${fieldsHTML}
+      ${ingredientsHTML}
+      ${nutritionHTML}
+      ${instructionsHTML}
 
       <div style="display:flex;justify-content:flex-end;gap:0.75rem;margin-top:1.5rem;">
         <button class="btn btn-secondary" id="back-to-paste-bottom">Back to Edit</button>
@@ -304,7 +320,65 @@ function handleImageFile(file, container) {
   reader.readAsDataURL(file);
 }
 
+function renderUSDAResult(result) {
+  // result from lookupIngredient: { ingredient_id, name, calories_per_100g, ... }
+  if (!result || (!result.ingredient_id && !result.id)) {
+    return '<p style="font-size:0.8rem;color:var(--color-text-secondary);">No match found.</p>';
+  }
+  const data = JSON.stringify({
+    ingredient_id: result.ingredient_id || result.id,
+    name: result.name,
+    calories_per_100g: result.calories_per_100g,
+    protein_per_100g: result.protein_per_100g,
+    fat_per_100g: result.fat_per_100g,
+    carbs_per_100g: result.carbs_per_100g,
+    fiber_per_100g: result.fiber_per_100g,
+  }).replace(/"/g, '&quot;');
+
+  return `
+    <div style="border:1px solid var(--color-border);border-radius:var(--radius);padding:0.5rem;margin-bottom:0.25rem;font-size:0.8rem;">
+      <strong>${escapeHTML(result.name)}</strong>
+      <div style="color:var(--color-text-secondary);margin-top:0.25rem;">
+        ${Math.round(result.calories_per_100g || 0)} cal &middot;
+        ${Math.round((result.protein_per_100g || 0) * 10) / 10}g P &middot;
+        ${Math.round((result.fat_per_100g || 0) * 10) / 10}g F &middot;
+        ${Math.round((result.carbs_per_100g || 0) * 10) / 10}g C
+        /100g
+      </div>
+      <button class="btn btn-primary btn-sm" data-action="use-ingredient" data-ingredient="${data}" style="margin-top:0.35rem;font-size:0.75rem;padding:0.15rem 0.5rem;">Use This</button>
+    </div>
+  `;
+}
+
+function renderLocalResult(item) {
+  const data = JSON.stringify({
+    ingredient_id: item.id || item.ingredient_id,
+    name: item.name,
+    calories_per_100g: item.calories_per_100g,
+    protein_per_100g: item.protein_per_100g,
+    fat_per_100g: item.fat_per_100g,
+    carbs_per_100g: item.carbs_per_100g,
+    fiber_per_100g: item.fiber_per_100g,
+  }).replace(/"/g, '&quot;');
+
+  return `
+    <div style="border:1px solid var(--color-border);border-radius:var(--radius);padding:0.5rem;margin-bottom:0.25rem;font-size:0.8rem;">
+      <strong>${escapeHTML(item.name)}</strong>
+      <div style="color:var(--color-text-secondary);margin-top:0.25rem;">
+        ${Math.round(item.calories_per_100g || 0)} cal &middot;
+        ${Math.round((item.protein_per_100g || 0) * 10) / 10}g P &middot;
+        ${Math.round((item.fat_per_100g || 0) * 10) / 10}g F &middot;
+        ${Math.round((item.carbs_per_100g || 0) * 10) / 10}g C
+        /100g
+      </div>
+      <button class="btn btn-primary btn-sm" data-action="use-ingredient" data-ingredient="${data}" style="margin-top:0.35rem;font-size:0.75rem;padding:0.15rem 0.5rem;">Use This</button>
+    </div>
+  `;
+}
+
 function attachEvents(container) {
+  _container = container;
+
   // Image upload: click area to trigger file input
   container.addEventListener('click', (e) => {
     const uploadArea = e.target.closest('#image-upload-area');
@@ -330,6 +404,28 @@ function attachEvents(container) {
     if (e.target.id === 'image-file-input' && e.target.files?.[0]) {
       handleImageFile(e.target.files[0], container);
     }
+
+    // Draft top-level field changes
+    if (e.target.dataset.draftField && state.draftRecipe) {
+      const field = e.target.dataset.draftField;
+      let val = e.target.value;
+      if (field === 'servings') val = parseInt(val, 10) || 1;
+      else if (field === 'prep_time_min' || field === 'cook_time_min') val = parseInt(val, 10) || null;
+      state.draftRecipe[field] = val;
+      // Re-render only for servings (affects totals display)
+      if (field === 'servings') render(container);
+    }
+  });
+
+  // Also handle input events for live updates on draft fields
+  container.addEventListener('input', (e) => {
+    // Draft top-level field live updates (non-numeric)
+    if (e.target.dataset.draftField && state.draftRecipe) {
+      const field = e.target.dataset.draftField;
+      if (!['servings', 'prep_time_min', 'cook_time_min'].includes(field)) {
+        state.draftRecipe[field] = e.target.value;
+      }
+    }
   });
 
   // Drag and drop
@@ -354,6 +450,7 @@ function attachEvents(container) {
     });
   }
 
+  // Page-level click actions (parse, back, save)
   container.addEventListener('click', async (e) => {
     // Parse button
     if (e.target.closest('#parse-recipe-btn')) {
@@ -368,9 +465,11 @@ function attachEvents(container) {
       render(container);
 
       try {
-        const result = await api.parseRecipe({ text, imageData: state.imageData, imageType: state.imageType });
+        const result = await parseRecipe({ text, imageData: state.imageData, imageType: state.imageType });
         state.parsedRecipe = result;
         state.lookupErrors = result.lookup_errors || [];
+        state.draftRecipe = buildDraftFromParsed(result);
+        state.resolvingIndex = null;
         state.view = 'preview';
       } catch (err) {
         showToast(`Parse failed: ${err.message}`, 'error');
@@ -383,51 +482,234 @@ function attachEvents(container) {
     // Back to paste
     if (e.target.closest('#back-to-paste') || e.target.closest('#back-to-paste-bottom')) {
       state.view = 'paste';
+      state.resolvingIndex = null;
       render(container);
       return;
     }
 
     // Save recipe
     if (e.target.closest('#save-recipe-btn')) {
-      await saveRecipe(container);
+      await handleSaveRecipe(container);
       return;
     }
   });
+
+  // --- Shared editor event delegation ---
+  attachEditorEvents(container, {
+    onIngredientChange(index, field, value) {
+      if (!state.draftRecipe) return;
+      const ing = state.draftRecipe.ingredients[index];
+      if (!ing) return;
+
+      if (field === 'name') {
+        if (value !== ing.name) {
+          ing.name = value;
+          // Changing name marks ingredient as unresolved
+          ing.resolved = false;
+          ing.ingredient_id = null;
+          ing.resolution_error = null;
+          ing.calories_per_100g = null;
+          ing.protein_per_100g = null;
+          ing.fat_per_100g = null;
+          ing.carbs_per_100g = null;
+          ing.fiber_per_100g = null;
+          ing.calories = null;
+          ing.protein = null;
+          ing.fat = null;
+          ing.carbs = null;
+          ing.fiber = null;
+          render(container);
+        }
+      } else if (field === 'amount') {
+        ing.amount = parseFloat(value) || 0;
+        recalcRowMacros(ing);
+        render(container);
+      } else if (field === 'unit') {
+        ing.unit = value;
+      }
+    },
+
+    onIngredientRemove(index) {
+      state.draftRecipe.ingredients.splice(index, 1);
+      if (state.resolvingIndex != null) {
+        if (state.resolvingIndex === index) state.resolvingIndex = null;
+        else if (state.resolvingIndex > index) state.resolvingIndex--;
+      }
+      render(container);
+    },
+
+    onIngredientAdd() {
+      state.draftRecipe.ingredients.push(blankIngredient());
+      render(container);
+    },
+
+    onResolve(index) {
+      state.resolvingIndex = index;
+      render(container);
+    },
+
+    onCancelResolve() {
+      state.resolvingIndex = null;
+      render(container);
+    },
+
+    async onUsdaRetry(term) {
+      const resultsDiv = container.querySelector('#usda-retry-results');
+      if (resultsDiv) resultsDiv.innerHTML = '<p style="font-size:0.8rem;color:var(--color-text-secondary);">Searching...</p>';
+      try {
+        const rIdx = state.resolvingIndex;
+        const ing = state.draftRecipe.ingredients[rIdx];
+        const result = await lookupIngredient(term, ing.amount || 100, 'g');
+        if (resultsDiv) {
+          resultsDiv.innerHTML = renderUSDAResult(result);
+        }
+      } catch (err) {
+        if (resultsDiv) resultsDiv.innerHTML = `<p style="font-size:0.8rem;color:var(--color-danger, #e53935);">Not found: ${escapeHTML(err.message)}</p>`;
+      }
+    },
+
+    async onLocalSearch(query) {
+      const resultsDiv = container.querySelector('#local-search-results');
+      if (resultsDiv) resultsDiv.innerHTML = '<p style="font-size:0.8rem;color:var(--color-text-secondary);">Searching...</p>';
+      try {
+        const results = await searchIngredients(query);
+        const items = Array.isArray(results) ? results : (results.ingredients || []);
+        if (resultsDiv) {
+          resultsDiv.innerHTML = items.length > 0
+            ? items.map(r => renderLocalResult(r)).join('')
+            : '<p style="font-size:0.8rem;color:var(--color-text-secondary);">No matches found.</p>';
+        }
+      } catch (err) {
+        if (resultsDiv) resultsDiv.innerHTML = `<p style="font-size:0.8rem;color:var(--color-danger, #e53935);">Error: ${escapeHTML(err.message)}</p>`;
+      }
+    },
+
+    onUseIngredient(data) {
+      applyResolvedIngredient(data);
+      render(container);
+    },
+
+    async onCreateManual({ name, cal, pro, fat, carb, fib }) {
+      if (!name) {
+        showToast('Ingredient name is required', 'error');
+        return;
+      }
+
+      try {
+        const created = await createIngredient({
+          name,
+          calories_per_100g: cal,
+          protein_per_100g: pro,
+          fat_per_100g: fat,
+          carbs_per_100g: carb,
+          fiber_per_100g: fib,
+        });
+        applyResolvedIngredient({
+          ingredient_id: created.id || created.ingredient_id,
+          name: created.name || name,
+          calories_per_100g: cal,
+          protein_per_100g: pro,
+          fat_per_100g: fat,
+          carbs_per_100g: carb,
+          fiber_per_100g: fib,
+        });
+        render(container);
+      } catch (err) {
+        showToast(`Create failed: ${err.message}`, 'error');
+      }
+    },
+
+    onInstructionChange(index, value) {
+      if (state.draftRecipe) {
+        state.draftRecipe.instructions[index] = value;
+      }
+    },
+
+    onInstructionRemove(index) {
+      state.draftRecipe.instructions.splice(index, 1);
+      render(container);
+    },
+
+    onInstructionAdd() {
+      state.draftRecipe.instructions.push('');
+      render(container);
+    },
+  });
 }
 
-async function saveRecipe(container) {
-  const recipe = state.parsedRecipe;
-  if (!recipe) return;
+// ============================================================
+// Resolution helpers
+// ============================================================
 
-  // Read edited values from form
-  const name = container.querySelector('#recipe-name')?.value?.trim();
-  const description = container.querySelector('#recipe-description')?.value?.trim();
-  const servings = parseInt(container.querySelector('#recipe-servings')?.value, 10) || 1;
-  const cuisine = container.querySelector('#recipe-cuisine')?.value?.trim();
-  const mealType = container.querySelector('#recipe-meal-type')?.value;
-  const mainProtein = container.querySelector('#recipe-main-protein')?.value?.trim();
-  const prepTime = parseInt(container.querySelector('#recipe-prep-time')?.value, 10) || null;
-  const cookTime = parseInt(container.querySelector('#recipe-cook-time')?.value, 10) || null;
-  const phase = container.querySelector('#recipe-phase')?.value;
+function applyResolvedIngredient(data) {
+  const idx = state.resolvingIndex;
+  if (idx == null || !state.draftRecipe) return;
+  const ing = state.draftRecipe.ingredients[idx];
+  if (!ing) return;
 
-  if (!name) {
+  ing.ingredient_id = data.ingredient_id || data.id;
+  ing.name = data.name || ing.name;
+  ing.calories_per_100g = data.calories_per_100g ?? null;
+  ing.protein_per_100g = data.protein_per_100g ?? null;
+  ing.fat_per_100g = data.fat_per_100g ?? null;
+  ing.carbs_per_100g = data.carbs_per_100g ?? null;
+  ing.fiber_per_100g = data.fiber_per_100g ?? null;
+  ing.resolved = true;
+  ing.resolution_error = null;
+
+  recalcRowMacros(ing);
+  state.resolvingIndex = null;
+}
+
+// ============================================================
+// Save
+// ============================================================
+
+async function handleSaveRecipe(container) {
+  const draft = state.draftRecipe;
+  if (!draft) return;
+
+  // Validate
+  if (!draft.name.trim()) {
     showToast('Recipe name is required', 'error');
     return;
   }
 
+  if (draft.ingredients.length === 0) {
+    showToast('At least one ingredient is required', 'error');
+    return;
+  }
+
+  const unresolvedCount = draft.ingredients.filter(i => !i.resolved).length;
+  if (unresolvedCount > 0) {
+    showToast(`${unresolvedCount} ingredient${unresolvedCount > 1 ? 's' : ''} still need${unresolvedCount === 1 ? 's' : ''} to be resolved`, 'error');
+    return;
+  }
+
   const payload = {
-    name,
-    description,
-    servings,
-    cuisine,
-    meal_type: mealType,
-    main_protein: mainProtein,
-    prep_time_min: prepTime,
-    cook_time_min: cookTime,
-    total_time_min: (prepTime || 0) + (cookTime || 0) || null,
-    phase,
-    instructions: recipe.instructions || [],
-    ingredients: recipe.ingredients || [],
+    name: draft.name.trim(),
+    description: draft.description.trim(),
+    servings: draft.servings,
+    cuisine: draft.cuisine.trim(),
+    meal_type: draft.meal_type,
+    main_protein: draft.main_protein.trim(),
+    prep_time_min: draft.prep_time_min || null,
+    cook_time_min: draft.cook_time_min || null,
+    total_time_min: (draft.prep_time_min || 0) + (draft.cook_time_min || 0) || null,
+    phase: draft.phase,
+    instructions: draft.instructions.filter(s => s.trim()),
+    ingredients: draft.ingredients.map(ing => ({
+      ingredient_id: ing.ingredient_id,
+      name: ing.name,
+      amount: ing.amount,
+      unit: ing.unit,
+      section: ing.section || '',
+      calories: ing.calories,
+      protein: ing.protein,
+      fat: ing.fat,
+      carbs: ing.carbs,
+      fiber: ing.fiber,
+    })),
     tags: [],
   };
 
@@ -435,12 +717,15 @@ async function saveRecipe(container) {
   render(container);
 
   try {
-    await api.saveRecipe(payload);
+    await apiSaveRecipe(payload);
     await reloadRecipes();
-    showToast(`"${name}" saved successfully!`, 'success');
+    showToast(`"${draft.name}" saved successfully!`, 'success');
 
     // Reset and go to recipe library
-    state = { view: 'paste', parsedRecipe: null, lookupErrors: [], imageData: null, imageType: null };
+    state = {
+      view: 'paste', parsedRecipe: null, draftRecipe: null,
+      lookupErrors: [], imageData: null, imageType: null, resolvingIndex: null,
+    };
     location.hash = 'recipes';
   } catch (err) {
     showToast(`Save failed: ${err.message}`, 'error');
@@ -471,7 +756,7 @@ function render(container) {
       html = renderLoadingView();
       break;
     case 'preview':
-      html = renderPreviewView(state.parsedRecipe);
+      html = renderPreviewView();
       break;
     default:
       html = renderPasteView();
@@ -481,7 +766,10 @@ function render(container) {
 }
 
 export function renderAddRecipe(container) {
-  state = { view: 'paste', parsedRecipe: null, lookupErrors: [], imageData: null, imageType: null };
+  state = {
+    view: 'paste', parsedRecipe: null, draftRecipe: null,
+    lookupErrors: [], imageData: null, imageType: null, resolvingIndex: null,
+  };
   render(container);
   attachEvents(container);
 }

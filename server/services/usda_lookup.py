@@ -566,7 +566,7 @@ def expand_ingredient(ing):
     """
     ing_name = ing.get('name', '')
     amount_g = ing.get('grams_equivalent', ing.get('amount', 0))
-    unit = ing.get('unit', 'g')
+    unit = 'g'  # amount is always in grams after conversion
 
     if not is_blend(ing_name):
         # Single ingredient — standard lookup

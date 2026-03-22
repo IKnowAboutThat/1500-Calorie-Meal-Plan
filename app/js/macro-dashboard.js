@@ -5,7 +5,6 @@
  * Exports a single render function consumed by the app router.
  */
 
-import { adrenalCocktail } from './data/recipes.js';
 import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
@@ -129,10 +128,30 @@ function getRecipeById(id) {
 // ---------------------------------------------------------------------------
 
 /**
- * Compute daily macro totals for a given day in the plan.
- * Adrenal cocktails are added based on the LOGGED count, not a fixed 2.
+ * Compute macros contributed by a day's extras (e.g. adrenal cocktails).
  */
-function computeDayMacros(dayPlan, adrenalCount) {
+function computeExtrasMacros(dayPlan) {
+  let calories = 0, protein = 0, fiber = 0;
+  const extras = dayPlan.extras || [];
+  for (const extra of extras) {
+    if (extra.recipeId) {
+      const recipe = getRecipeById(extra.recipeId);
+      if (recipe) {
+        const count = extra.count || 1;
+        calories += recipe.calories * count;
+        protein += recipe.protein * count;
+        fiber += recipe.fiber * count;
+      }
+    }
+  }
+  return { calories, protein, fiber };
+}
+
+/**
+ * Compute daily macro totals for a given day in the plan.
+ * Extras (adrenal cocktails, etc.) are included from the plan's extras array.
+ */
+function computeDayMacros(dayPlan) {
   let calories = 0;
   let protein = 0;
   let fiber = 0;
@@ -148,11 +167,11 @@ function computeDayMacros(dayPlan, adrenalCount) {
     }
   }
 
-  // Add adrenal cocktails based on logged count
-  const count = typeof adrenalCount === 'number' ? adrenalCount : 0;
-  calories += count * adrenalCocktail.calories;
-  protein += count * adrenalCocktail.protein;
-  // fiber from adrenal cocktails is 0
+  // Add extras (adrenal cocktails, etc.) from plan
+  const extrasMacros = computeExtrasMacros(dayPlan);
+  calories += extrasMacros.calories;
+  protein += extrasMacros.protein;
+  fiber += extrasMacros.fiber;
 
   return { calories, protein, fiber };
 }
@@ -320,42 +339,6 @@ const CHART_STYLES = `
     font-weight: 700;
     color: var(--color-warning);
   }
-  .adrenal-tracker {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
-  .adrenal-dot {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: 2px solid var(--color-border);
-    background: transparent;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-border);
-    transition: all var(--transition);
-    padding: 0;
-    font-family: var(--font-family);
-  }
-  .adrenal-dot:hover {
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-  .adrenal-dot--filled {
-    background-color: var(--color-primary);
-    border-color: var(--color-primary);
-    color: #ffffff;
-  }
-  .adrenal-dot--filled:hover {
-    background-color: var(--color-primary-dark);
-    border-color: var(--color-primary-dark);
-    color: #ffffff;
-  }
 </style>
 `;
 
@@ -434,10 +417,8 @@ function collectDayData(plan, dates) {
     const dayPlan = plan.days[key];
     const date = dates[idx];
     const dateStr = toDateStr(date);
-    const adrenalLog = store.getAdrenalLog(dateStr);
-    const adrenalCount = adrenalLog.count || 0;
     const hasRecipes = dayHasRecipes(dayPlan);
-    const macros = computeDayMacros(dayPlan, adrenalCount);
+    const macros = computeDayMacros(dayPlan);
     const phase = dayPlan.phase || getPhaseForDate(date);
 
     // Collect individual meal info
@@ -449,6 +430,12 @@ function collectDayData(plan, dates) {
       })
       .filter(Boolean);
 
+    // Collect extras info for display
+    const extras = (dayPlan.extras || []).map(extra => {
+      const recipe = extra.recipeId ? getRecipeById(extra.recipeId) : null;
+      return { ...extra, recipe };
+    }).filter(e => e.recipe);
+
     return {
       key,
       index: idx,
@@ -457,10 +444,10 @@ function collectDayData(plan, dates) {
       dayName: DAY_NAMES[idx],
       dayAbbrev: DAY_ABBREVS[idx],
       phase,
-      adrenalCount,
       hasRecipes,
       macros,
       meals,
+      extras,
       dayPlan,
     };
   });
@@ -517,9 +504,8 @@ function renderWeeklyOverview(dayData, targets) {
   let totalProtein = 0;
   let totalFiber = 0;
   let daysOnTarget = 0;
-  let totalAdrenal = 0;
   let totalMeals = 0;
-  const maxAdrenal = dayData.length * (store.getSettings().adrenalCocktailsPerDay || 2);
+  let totalExtras = 0;
 
   for (const d of dayData) {
     if (d.hasRecipes) {
@@ -530,8 +516,10 @@ function renderWeeklyOverview(dayData, targets) {
         daysOnTarget++;
       }
     }
-    totalAdrenal += d.adrenalCount;
     totalMeals += d.meals.length;
+    for (const extra of d.extras) {
+      totalExtras += extra.count || 1;
+    }
   }
 
   const avgCal = Math.round(totalCal / divisor);
@@ -557,8 +545,8 @@ function renderWeeklyOverview(dayData, targets) {
         <div class="stat-card__label">Days On Target</div>
       </div>
       <div class="stat-card">
-        <div class="stat-card__value" style="background: linear-gradient(135deg, #4a7c59, #6aab7b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${totalAdrenal}/${maxAdrenal}</div>
-        <div class="stat-card__label">Adrenal Cocktails</div>
+        <div class="stat-card__value" style="background: linear-gradient(135deg, #4a7c59, #6aab7b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${totalExtras}</div>
+        <div class="stat-card__label">Extras Planned</div>
       </div>
       <div class="stat-card">
         <div class="stat-card__value" style="background: linear-gradient(135deg, #4a7c59, #6aab7b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${totalMeals}</div>
@@ -623,16 +611,6 @@ function renderBarChart(dayData, targets) {
 function renderDayCard(d, targets) {
   const phaseBadgeClass = d.phase === 'luteal' ? 'badge-phase-luteal' : 'badge-phase-standard';
   const phaseLabel = d.phase === 'luteal' ? 'Luteal' : 'Standard';
-  const cocktailsPerDay = store.getSettings().adrenalCocktailsPerDay || 2;
-
-  // Adrenal dot buttons
-  const adrenalDots = [];
-  for (let i = 0; i < cocktailsPerDay; i++) {
-    const filled = i < d.adrenalCount;
-    adrenalDots.push(
-      `<button class="adrenal-dot${filled ? ' adrenal-dot--filled' : ''}" data-date="${d.dateStr}" data-index="${i}" data-action="toggle-adrenal" aria-label="Adrenal cocktail ${i + 1}${filled ? ' (consumed)' : ' (not consumed)'}">&#9679;</button>`
-    );
-  }
 
   // Meal list
   let mealListHtml = '';
@@ -642,14 +620,16 @@ function renderDayCard(d, targets) {
     ).join('');
   }
 
-  // Adrenal cocktail line in meal list
-  if (d.adrenalCount > 0) {
-    const acCal = d.adrenalCount * adrenalCocktail.calories;
-    const acPro = d.adrenalCount * adrenalCocktail.protein;
-    mealListHtml += `<div class="flex flex-between text-secondary"><span>${d.adrenalCount}&times; Adrenal Cocktail</span><span>${fmtNum(acCal)} cal | ${fmtNum(acPro)}g P</span></div>`;
+  // Extras lines (adrenal cocktails, etc.)
+  for (const extra of d.extras) {
+    const count = extra.count || 1;
+    const eCal = extra.recipe.calories * count;
+    const ePro = extra.recipe.protein * count;
+    const eFib = extra.recipe.fiber * count;
+    mealListHtml += `<div class="flex flex-between text-secondary"><span>${extra.recipe.name} &times;${count}</span><span>${fmtNum(eCal)} cal | ${fmtNum(ePro)}g P | ${fmtNum(eFib, 1)}g F</span></div>`;
   }
 
-  if (!d.hasRecipes && d.adrenalCount === 0) {
+  if (!d.hasRecipes && d.extras.length === 0) {
     mealListHtml = '<div class="text-secondary">No meals planned</div>';
   }
 
@@ -664,17 +644,13 @@ function renderDayCard(d, targets) {
   const proStatus = getMacroStatus('protein', d.macros.protein);
   const fibStatus = getMacroStatus('fiber', d.macros.fiber);
 
-  // Only show progress bars if there are meals or adrenal cocktails logged
-  const showMacros = d.hasRecipes || d.adrenalCount > 0;
+  // Only show progress bars if there are meals or extras
+  const showMacros = d.hasRecipes || d.extras.length > 0;
 
   return `
     <div class="dashboard-day card">
       <div class="flex flex-between" style="align-items: center; flex-wrap: wrap; gap: 0.5rem;">
         <h3 style="margin: 0;">${dateDisplay} <span class="badge ${phaseBadgeClass}">${phaseLabel}</span></h3>
-        <div class="adrenal-tracker">
-          <span class="text-sm">Adrenal Cocktails:</span>
-          ${adrenalDots.join('')}
-        </div>
       </div>
 
       <div class="text-sm mb-1 mt-1">
@@ -731,38 +707,5 @@ function attachEventListeners(container) {
       return;
     }
 
-    // ---- Adrenal cocktail dot toggle ----
-    const adrenalBtn = target.closest('[data-action="toggle-adrenal"]');
-    if (adrenalBtn) {
-      const date = adrenalBtn.dataset.date;
-      const clickedIndex = parseInt(adrenalBtn.dataset.index, 10);
-      const currentLog = store.getAdrenalLog(date);
-      const currentCount = currentLog.count || 0;
-
-      let newCount;
-      if (clickedIndex < currentCount) {
-        // Clicking a filled dot: if it's the last filled one, decrement
-        // Otherwise set count to clicked_index + 1 (unfill higher ones)
-        if (clickedIndex === currentCount - 1) {
-          newCount = clickedIndex;
-        } else {
-          newCount = clickedIndex + 1;
-        }
-      } else {
-        // Clicking an unfilled dot: set count to clicked_index + 1
-        newCount = clickedIndex + 1;
-      }
-
-      store.setAdrenalLog(date, newCount);
-      await renderDashboard(container);
-
-      getApp().then(app => {
-        app.showToast(
-          `Adrenal cocktails for ${date}: ${newCount}`,
-          'info'
-        );
-      });
-      return;
-    }
   });
 }

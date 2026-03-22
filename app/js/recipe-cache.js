@@ -67,6 +67,12 @@ function _normalize(r) {
       protein: ing.protein ?? 0,
       fiber: ing.fiber ?? 0,
     })),
+    // Normalize instructions: ensure always an array of strings
+    instructions: Array.isArray(r.instructions)
+      ? r.instructions
+      : (() => { try { const p = JSON.parse(r.instructions); return Array.isArray(p) ? p : []; } catch { return []; } })(),
+    // Normalize description: ensure always a string
+    description: r.description || '',
     // Extract tag names for backward compatibility with localStorage tag system
     tagNames: (r.tags || []).map(t => t.tag_name || t.name || t),
   };

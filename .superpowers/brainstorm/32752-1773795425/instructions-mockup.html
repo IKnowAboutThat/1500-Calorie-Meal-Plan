@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recipe Instructions Mockup</title>
+<style>
+  :root {
+    --color-bg: #f7f5f0;
+    --color-bg-subtle: #efece6;
+    --color-surface: rgba(255, 255, 255, 0.78);
+    --color-surface-solid: #ffffff;
+    --color-primary: #4a7c59;
+    --color-primary-light: #6aab7b;
+    --color-primary-dark: #2c4a3e;
+    --color-accent: #c27044;
+    --color-text: #1a1a2e;
+    --color-text-secondary: #6b7280;
+    --color-border: #e2dfd8;
+    --color-macro-cal: #c27044;
+    --color-macro-protein: #3d7c8c;
+    --color-macro-fiber: #7c6fae;
+    --radius: 10px;
+    --radius-lg: 16px;
+    --shadow-md: 0 4px 16px rgba(42,42,42,0.07), 0 2px 4px rgba(42,42,42,0.03);
+    --shadow-lg: 0 12px 40px rgba(42,42,42,0.1), 0 4px 8px rgba(42,42,42,0.05);
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--color-bg);
+    font-family: var(--font-family);
+    color: var(--color-text);
+    line-height: 1.65;
+    padding: 2rem;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.6rem;
+    color: var(--color-primary-dark);
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+  }
+
+  .approach-label {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    margin: 2.5rem 0 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .approach-desc {
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Modal mockup */
+  .modal-mockup {
+    background: var(--color-surface-solid);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 640px;
+    margin: 0 auto 3rem;
+    padding: 2rem;
+    position: relative;
+    border: 1px solid var(--color-border);
+  }
+
+  .modal-mockup .close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .modal-mockup h2 {
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .badge-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .badge-cuisine { background: #e8f5e9; color: #2e7d32; }
+  .badge-tag { background: var(--color-bg-subtle); color: var(--color-text-secondary); }
+  .badge-phase { background: #fff3e0; color: #e65100; }
+
+  /* Macro bar */
+  .macro-bar {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .macro-item {
+    text-align: center;
+  }
+
+  .macro-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+
+  .macro-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+  }
+
+  /* Ingredients table */
+  .ing-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .ing-table th {
+    text-align: left;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    border-bottom: 2px solid var(--color-border);
+    padding: 0.5rem 0.5rem;
+  }
+
+  .ing-table td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .ing-table tfoot td {
+    font-weight: 700;
+    border-top: 2px solid var(--color-primary);
+    border-bottom: none;
+  }
+
+  /* Instructions section */
+  .instructions-section {
+    margin-top: 1.5rem;
+  }
+
+  .instructions-section h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-text);
+  }
+
+  .instructions-list {
+    list-style: none;
+    counter-reset: step;
+    padding: 0;
+  }
+
+  .instructions-list li {
+    counter-increment: step;
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    align-items: flex-start;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .instructions-list li::before {
+    content: counter(step);
+    flex-shrink: 0;
+    width: 1.6rem;
+    height: 1.6rem;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-top: 0.1rem;
+  }
+
+  /* Collapsible approach */
+  .collapse-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text);
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 0.75rem;
+  }
+
+  .collapse-toggle .arrow {
+    transition: transform 0.2s;
+    font-size: 0.8rem;
+  }
+
+  .collapse-toggle.open .arrow {
+    transform: rotate(90deg);
+  }
+
+  /* Tags */
+  .tags-section {
+    margin-top: 1.5rem;
+  }
+
+  .tags-section h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tag-input-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .tag-input-row input {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    width: 160px;
+  }
+
+  .tag-input-row span {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+
+  /* NEW indicator */
+  .new-badge {
+    display: inline-block;
+    background: var(--color-accent);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+
+  .divider {
+    border: none;
+    border-top: 2px dashed var(--color-accent);
+    margin: 1rem 0;
+  }
+
+  .highlight-box {
+    border: 2px solid var(--color-accent);
+    border-radius: var(--radius);
+    padding: 1rem;
+    background: rgba(194, 112, 68, 0.04);
+  }
+
+  /* Vote buttons */
+  .vote-section {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 2rem 0 3rem;
+  }
+
+  .vote-btn {
+    padding: 0.6rem 1.8rem;
+    border-radius: 999px;
+    border: 2px solid var(--color-primary);
+    background: white;
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .vote-btn:hover, .vote-btn.selected {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .no-instructions {
+    color: var(--color-text-secondary);
+    font-style: italic;
+    font-size: 0.85rem;
+    padding: 0.5rem 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Recipe Instructions — Mockup</h1>
+<p class="subtitle">How should cooking instructions appear in the recipe detail modal?<br>This modal is shared by both the Recipes tab and the Planner tab.</p>
+
+<!-- ==================== APPROACH A ==================== -->
+<div class="approach-label">Approach A — Always Visible</div>
+<p class="approach-desc">Instructions appear as a numbered list below the ingredients table, always expanded. Simple and scannable.</p>
+
+<div class="modal-mockup">
+  <button class="close-btn">&times;</button>
+  <h2>Lemon Herb Grilled Chicken</h2>
+  <div class="badge-row">
+    <span class="badge badge-cuisine">Mediterranean</span>
+    <span class="badge badge-tag">Chicken</span>
+    <span class="badge badge-tag">Dinner</span>
+    <span class="badge badge-phase">Standard</span>
+  </div>
+
+  <div class="macro-bar">
+    <div class="macro-item">
+      <div class="macro-value" style="color:var(--color-macro-cal);">425</div>
+      <div class="macro-label">Calories</div>
+    </div>
+    <div class="macro-item">
+      <div class="macro-value" style="color:var(--color-macro-protein);">38g</div>
+      <div class="macro-label">Protein</div>
+    </div>
+    <div class="macro-item">
+      <div class="macro-value" style="color:var(--color-macro-fiber);">4.2g</div>
+      <div class="macro-label">Fiber</div>
+    </div>
+  </div>
+
+  <h3>Ingredients</h3>
+  <table class="ing-table">
+    <thead><tr><th>Ingredient</th><th>Amount</th><th>Cal</th><th>Protein</th><th>Fiber</th></tr></thead>
+    <tbody>
+      <tr><td>Chicken breast</td><td>170g</td><td>280</td><td>35g</td><td>0g</td></tr>
+      <tr><td>Olive oil</td><td>10g</td><td>88</td><td>0g</td><td>0g</td></tr>
+      <tr><td>Lemon juice</td><td>30ml</td><td>7</td><td>0.1g</td><td>0g</td></tr>
+      <tr><td>Mixed herbs</td><td>5g</td><td>5</td><td>0.2g</td><td>0.8g</td></tr>
+      <tr><td>Asparagus</td><td>100g</td><td>20</td><td>2.2g</td><td>2.1g</td></tr>
+      <tr><td>Cherry tomatoes</td><td>80g</td><td>25</td><td>0.5g</td><td>1.3g</td></tr>
+    </tbody>
+    <tfoot><tr><td>Total</td><td></td><td>425</td><td>38g</td><td>4.2g</td></tr></tfoot>
+  </table>
+
+  <div class="highlight-box">
+    <div class="instructions-section">
+      <h3>Instructions <span class="new-badge">New</span></h3>
+      <ol class="instructions-list">
+        <li><span>In a bowl, combine olive oil, lemon juice, minced garlic, and mixed herbs. Add chicken breast and marinate for at least 15 minutes.</span></li>
+        <li><span>Preheat grill or grill pan to medium-high heat.</span></li>
+        <li><span>Grill chicken for 6-7 minutes per side until internal temperature reaches 165°F (74°C). Let rest for 5 minutes before slicing.</span></li>
+        <li><span>Meanwhile, toss asparagus with a drizzle of olive oil and grill for 3-4 minutes, turning occasionally.</span></li>
+        <li><span>Halve the cherry tomatoes and arrange alongside the chicken and asparagus.</span></li>
+        <li><span>Squeeze fresh lemon over everything and serve.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="tags-section">
+    <h3>Tags</h3>
+    <div class="badge-row">
+      <span class="badge badge-tag">High Protein</span>
+      <span class="badge badge-tag">Quick</span>
+    </div>
+    <div class="tag-input-row">
+      <input type="text" placeholder="Add a tag...">
+      <span>Press Enter to add</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APPROACH B ==================== -->
+<div class="approach-label">Approach B — Collapsible Section</div>
+<p class="approach-desc">Instructions are hidden behind a clickable toggle. Keeps the modal compact — users expand when they want to cook.</p>
+
+<div class="modal-mockup">
+  <button class="close-btn">&times;</button>
+  <h2>Lemon Herb Grilled Chicken</h2>
+  <div class="badge-row">
+    <span class="badge badge-cuisine">Mediterranean</span>
+    <span class="badge badge-tag">Chicken</span>
+    <span class="badge badge-tag">Dinner</span>
+    <span class="badge badge-phase">Standard</span>
+  </div>
+
+  <div class="macro-bar">
+    <div class="macro-item">
+      <div class="macro-value" style="color:var(--color-macro-cal);">425</div>
+      <div class="macro-label">Calories</div>
+    </div>
+    <div class="macro-item">
+      <div class="macro-value" style="color:var(--color-macro-protein);">38g</div>
+      <div class="macro-label">Protein</div>
+    </div>
+    <div class="macro-item">
+      <div class="macro-value" style="color:var(--color-macro-fiber);">4.2g</div>
+      <div class="macro-label">Fiber</div>
+    </div>
+  </div>
+
+  <h3>Ingredients</h3>
+  <table class="ing-table">
+    <thead><tr><th>Ingredient</th><th>Amount</th><th>Cal</th><th>Protein</th><th>Fiber</th></tr></thead>
+    <tbody>
+      <tr><td>Chicken breast</td><td>170g</td><td>280</td><td>35g</td><td>0g</td></tr>
+      <tr><td>Olive oil</td><td>10g</td><td>88</td><td>0g</td><td>0g</td></tr>
+      <tr><td>Lemon juice</td><td>30ml</td><td>7</td><td>0.1g</td><td>0g</td></tr>
+      <tr><td>Mixed herbs</td><td>5g</td><td>5</td><td>0.2g</td><td>0.8g</td></tr>
+      <tr><td>Asparagus</td><td>100g</td><td>20</td><td>2.2g</td><td>2.1g</td></tr>
+      <tr><td>Cherry tomatoes</td><td>80g</td><td>25</td><td>0.5g</td><td>1.3g</td></tr>
+    </tbody>
+    <tfoot><tr><td>Total</td><td></td><td>425</td><td>38g</td><td>4.2g</td></tr></tfoot>
+  </table>
+
+  <div class="highlight-box">
+    <div class="instructions-section">
+      <button class="collapse-toggle open" onclick="this.classList.toggle('open'); this.nextElementSibling.style.display = this.classList.contains('open') ? 'block' : 'none';">
+        <span class="arrow">&#9654;</span> Instructions (6 steps) <span class="new-badge">New</span>
+      </button>
+      <ol class="instructions-list">
+        <li><span>In a bowl, combine olive oil, lemon juice, minced garlic, and mixed herbs. Add chicken breast and marinate for at least 15 minutes.</span></li>
+        <li><span>Preheat grill or grill pan to medium-high heat.</span></li>
+        <li><span>Grill chicken for 6-7 minutes per side until internal temperature reaches 165°F (74°C). Let rest for 5 minutes before slicing.</span></li>
+        <li><span>Meanwhile, toss asparagus with a drizzle of olive oil and grill for 3-4 minutes, turning occasionally.</span></li>
+        <li><span>Halve the cherry tomatoes and arrange alongside the chicken and asparagus.</span></li>
+        <li><span>Squeeze fresh lemon over everything and serve.</span></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="tags-section">
+    <h3>Tags</h3>
+    <div class="badge-row">
+      <span class="badge badge-tag">High Protein</span>
+      <span class="badge badge-tag">Quick</span>
+    </div>
+    <div class="tag-input-row">
+      <input type="text" placeholder="Add a tag...">
+      <span>Press Enter to add</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== NO INSTRUCTIONS STATE ==================== -->
+<div class="approach-label">Empty State</div>
+<p class="approach-desc">What it looks like when a recipe doesn't have instructions yet (applies to both approaches).</p>
+
+<div class="modal-mockup" style="max-width:500px;">
+  <h3>Instructions</h3>
+  <p class="no-instructions">No cooking instructions available for this recipe.</p>
+</div>
+
+<div style="height:2rem;"></div>
+
+</body>
+</html>

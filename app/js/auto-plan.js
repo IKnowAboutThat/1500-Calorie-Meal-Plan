@@ -11,7 +11,6 @@
  *   generateWeekPlan(weekId, options)
  */
 
-import { adrenalCocktail } from './data/recipes.js';
 import { getRecipes } from './recipe-cache.js';
 import * as store from './store.js';
 
@@ -126,6 +125,30 @@ function getRecipeById(id) {
 }
 
 // ---------------------------------------------------------------------------
+// Extras macro computation
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute macro totals from a day's extras array (e.g. adrenal cocktails).
+ */
+function computeExtrasMacros(dayPlan) {
+  let calories = 0, protein = 0, fiber = 0;
+  const extras = dayPlan.extras || [];
+  for (const extra of extras) {
+    if (extra.recipeId) {
+      const recipe = getRecipeById(extra.recipeId);
+      if (recipe) {
+        const count = extra.count || 1;
+        calories += recipe.calories * count;
+        protein += recipe.protein * count;
+        fiber += recipe.fiber * count;
+      }
+    }
+  }
+  return { calories, protein, fiber };
+}
+
+// ---------------------------------------------------------------------------
 // Number formatting
 // ---------------------------------------------------------------------------
 
@@ -154,6 +177,7 @@ function createEmptyPlan(weekId) {
       date: dateStr,
       phase,
       slots: mealSlots.map(s => ({ slotName: s.name, recipeId: null })),
+      extras: [],
     };
   });
   return { weekId, days };
@@ -212,8 +236,6 @@ export async function generateWeekPlan(weekId, options = {}) {
 
   const settings = store.getSettings();
   const targets = settings.dailyTargets;
-  const adrenalCals = adrenalCocktail.totalCalories;   // 320
-  const adrenalProtein = adrenalCocktail.totalProtein;  // 8
 
   // Get or create plan
   let plan = await store.getWeekPlan(weekId);
@@ -263,10 +285,11 @@ export async function generateWeekPlan(weekId, options = {}) {
     if (!day || !day.slots) continue;
     const slots = day.slots;
 
-    // Calculate existing macro totals for this day (from pre-filled slots)
-    let dayCalories = adrenalCals;
-    let dayProtein = adrenalProtein;
-    let dayFiber = 0;
+    // Calculate existing macro totals for this day (extras + pre-filled slots)
+    const extrasMacros = computeExtrasMacros(day);
+    let dayCalories = extrasMacros.calories;
+    let dayProtein = extrasMacros.protein;
+    let dayFiber = extrasMacros.fiber;
 
     const existingRecipes = [];
     for (const slot of slots) {
@@ -475,9 +498,10 @@ function renderPreview(plan, container, onApply, onRegenerate) {
     const date = dates[idx];
     const dateLabel = `${DAY_NAMES[idx]}, ${formatMonthDay(date)}`;
 
-    let dayCal = adrenalCocktail.totalCalories;
-    let dayPro = adrenalCocktail.totalProtein;
-    let dayFib = 0;
+    const dayExtras = computeExtrasMacros(day);
+    let dayCal = dayExtras.calories;
+    let dayPro = dayExtras.protein;
+    let dayFib = dayExtras.fiber;
 
     let slotsHtml = '';
     for (const slot of day.slots) {
@@ -516,9 +540,10 @@ function renderPreview(plan, container, onApply, onRegenerate) {
   for (const dayKey of DAY_KEYS) {
     const day = plan.days[dayKey];
     if (!day || !day.slots) continue;
-    let dayCal = adrenalCocktail.totalCalories;
-    let dayPro = adrenalCocktail.totalProtein;
-    let dayFib = 0;
+    const avgExtras = computeExtrasMacros(day);
+    let dayCal = avgExtras.calories;
+    let dayPro = avgExtras.protein;
+    let dayFib = avgExtras.fiber;
     let hasRecipes = false;
     for (const slot of day.slots) {
       if (slot.recipeId) {

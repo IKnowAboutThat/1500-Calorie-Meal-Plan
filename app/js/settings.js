@@ -9,6 +9,7 @@
  */
 
 import * as store from './store.js';
+import { getRecipes } from './recipe-cache.js';
 
 /**
  * Dynamically import app.js to access the toast system.
@@ -53,8 +54,15 @@ export function renderSettings(container) {
         <input type="number" id="target-fiber-max" value="${settings.dailyTargets.fiberMax}" min="0" max="100" step="5">
       </div>
       <div class="form-group">
+        <label>Adrenal Cocktail Recipe</label>
+        <select id="adrenal-recipe-select">
+          <option value="">None selected</option>
+          ${buildAdrenalRecipeOptions(settings.adrenalRecipeId)}
+        </select>
+      </div>
+      <div class="form-group">
         <label>Adrenal Cocktails Per Day</label>
-        <input type="number" id="target-adrenal" value="${settings.adrenalCocktailsPerDay}" min="0" max="5" step="1">
+        <input type="number" id="target-adrenal" value="${settings.adrenalCountPerDay}" min="0" max="5" step="1">
       </div>
       <button class="btn btn-primary" id="save-targets">Save Targets</button>
     </div>
@@ -135,6 +143,33 @@ export function renderSettings(container) {
 // ============================================================
 
 /**
+ * Build <option> elements for the adrenal cocktail recipe dropdown.
+ * Sorts snack recipes first, then meals, alphabetically within each group.
+ * @param {number|null} selectedId - Currently selected recipe ID
+ * @returns {string} HTML option elements
+ */
+function buildAdrenalRecipeOptions(selectedId) {
+  const recipes = getRecipes();
+  if (!recipes || recipes.length === 0) return '';
+
+  // Partition into snacks and non-snacks, sort alphabetically within each
+  const snacks = recipes
+    .filter(r => r.mealType === 'snack')
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const meals = recipes
+    .filter(r => r.mealType !== 'snack')
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const sorted = [...snacks, ...meals];
+
+  return sorted.map(r => {
+    const cal = r.calories != null ? Math.round(r.calories) : '?';
+    const selected = r.id === selectedId ? ' selected' : '';
+    return `<option value="${r.id}"${selected}>${escapeHtml(r.name)} (${cal} cal)</option>`;
+  }).join('\n          ');
+}
+
+/**
  * Bind the "Save Targets" button click handler.
  */
 function bindTargetEvents(container) {
@@ -146,7 +181,10 @@ function bindTargetEvents(container) {
     const protein = parseInt(container.querySelector('#target-protein').value, 10);
     const fiberMin = parseInt(container.querySelector('#target-fiber-min').value, 10);
     const fiberMax = parseInt(container.querySelector('#target-fiber-max').value, 10);
-    const adrenalCocktailsPerDay = parseInt(container.querySelector('#target-adrenal').value, 10);
+    const adrenalCount = parseInt(container.querySelector('#target-adrenal').value, 10);
+    const adrenalRecipeVal = container.querySelector('#adrenal-recipe-select').value;
+    const adrenalRecipeId = adrenalRecipeVal ? parseInt(adrenalRecipeVal, 10) : null;
+    const adrenalCountPerDay = isNaN(adrenalCount) ? 2 : adrenalCount;
 
     const settings = {
       dailyTargets: {
@@ -155,7 +193,9 @@ function bindTargetEvents(container) {
         fiberMin: isNaN(fiberMin) ? 30 : fiberMin,
         fiberMax: isNaN(fiberMax) ? 40 : fiberMax,
       },
-      adrenalCocktailsPerDay: isNaN(adrenalCocktailsPerDay) ? 2 : adrenalCocktailsPerDay,
+      adrenalCocktailsPerDay: adrenalCountPerDay,
+      adrenalRecipeId,
+      adrenalCountPerDay,
     };
 
     store.saveSettings(settings);

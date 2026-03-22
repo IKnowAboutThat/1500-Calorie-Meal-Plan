@@ -95,6 +95,23 @@ def _enrich_recipe(row, conn):
         recipe['carbs_per_serving'] = macros['carbs']
         recipe['fiber_per_serving'] = macros['fiber']
 
+    # Normalize instructions: ensure always a list
+    raw_instructions = recipe.get('instructions')
+    if raw_instructions:
+        if isinstance(raw_instructions, str):
+            try:
+                parsed = json.loads(raw_instructions)
+                recipe['instructions'] = parsed if isinstance(parsed, list) else []
+            except (json.JSONDecodeError, TypeError):
+                recipe['instructions'] = []
+        elif not isinstance(raw_instructions, list):
+            recipe['instructions'] = []
+    else:
+        recipe['instructions'] = []
+
+    # Normalize description: ensure always a string
+    recipe['description'] = recipe.get('description') or ''
+
     # Get tags
     tag_rows = conn.execute("""
         SELECT rt.tag_id, rt.parent_tag_id, t.name as tag_name
@@ -192,8 +209,19 @@ def create_recipe(data, ingredient_rows):
     return recipe
 
 
-def update_recipe(recipe_id, data):
-    """Update recipe fields (not ingredients)."""
+def update_recipe(recipe_id, data, ingredient_rows=None):
+    """Update recipe fields and optionally replace ingredients.
+
+    Args:
+        recipe_id: ID of the recipe to update.
+        data: dict with recipe fields to update.
+        ingredient_rows: optional list of dicts with ingredient_id, amount, unit,
+                         sort_order, section. When provided, replaces all existing
+                         recipe_ingredients rows.
+
+    Returns:
+        The updated recipe dict with calculated macros, or None if not found.
+    """
     conn = get_connection()
 
     fields = []
@@ -205,13 +233,28 @@ def update_recipe(recipe_id, data):
 
     for field in updatable:
         if field in data:
+            val = data[field]
+            # Store instructions as JSON text if given as a list
+            if field == 'instructions' and isinstance(val, list):
+                val = json.dumps(val)
             fields.append(f"{field} = ?")
-            values.append(data[field])
+            values.append(val)
 
     if fields:
         values.append(recipe_id)
         conn.execute(f"UPDATE recipes SET {', '.join(fields)} WHERE id = ?", values)
-        conn.commit()
+
+    # Replace ingredients if provided
+    if ingredient_rows is not None:
+        conn.execute("DELETE FROM recipe_ingredients WHERE recipe_id = ?", (recipe_id,))
+        for idx, ing in enumerate(ingredient_rows):
+            conn.execute("""
+                INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit, sort_order, section)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (recipe_id, ing['ingredient_id'], ing['amount'],
+                  ing.get('unit', 'g'), ing.get('sort_order', idx), ing.get('section')))
+
+    conn.commit()
 
     row = conn.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row:

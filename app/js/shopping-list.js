@@ -433,6 +433,18 @@ async function generateShoppingListData() {
         recipeIdList.push(slot.recipeId);
       }
     }
+
+    // Include extras (adrenal cocktails, etc.)
+    const extras = dayPlan.extras || [];
+    for (const extra of extras) {
+      if (extra.recipeId) {
+        recipeIds.add(extra.recipeId);
+        const count = extra.count || 1;
+        for (let i = 0; i < count; i++) {
+          recipeIdList.push(extra.recipeId);
+        }
+      }
+    }
   }
 
   if (recipeIds.size === 0) {

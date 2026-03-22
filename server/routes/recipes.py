@@ -61,6 +61,8 @@ def parse_recipe():
     for ing in parsed_ingredients:
         try:
             expanded = expand_ingredient(ing)
+            for item in expanded:
+                item['resolved'] = True
             enriched_ingredients.extend(expanded)
         except IngredientNotFoundError as e:
             lookup_errors.append({
@@ -68,10 +70,24 @@ def parse_recipe():
                 'searches_tried': e.searches_tried,
                 'message': str(e),
             })
+            enriched_ingredients.append({
+                'name': ing['name'],
+                'amount': ing.get('grams_equivalent', ing.get('amount', 0)),
+                'unit': 'g',
+                'section': None,
+                'ingredient_id': None,
+                'resolved': False,
+                'resolution_error': str(e),
+                'calories_per_100g': 0, 'protein_per_100g': 0, 'fat_per_100g': 0,
+                'carbs_per_100g': 0, 'fiber_per_100g': 0,
+                'calories': 0, 'protein': 0, 'fat': 0, 'carbs': 0, 'fiber': 0,
+            })
 
-    # Calculate totals
+    # Calculate totals (only from resolved ingredients)
     totals = {'calories': 0, 'protein': 0, 'fat': 0, 'carbs': 0, 'fiber': 0}
     for ing in enriched_ingredients:
+        if not ing.get('resolved', False):
+            continue
         for key in totals:
             totals[key] += ing[key]
     for key in totals:
@@ -149,7 +165,20 @@ def save_recipe():
 @recipes_bp.route('/<int:recipe_id>', methods=['PUT'])
 def update_single_recipe(recipe_id):
     data = request.get_json()
-    recipe = update_recipe(recipe_id, data)
+
+    ingredient_rows = None
+    if 'ingredients' in data:
+        ingredient_rows = []
+        for idx, ing in enumerate(data['ingredients']):
+            ingredient_rows.append({
+                'ingredient_id': ing['ingredient_id'],
+                'amount': ing['amount'],
+                'unit': ing.get('unit', 'g'),
+                'sort_order': ing.get('sort_order', idx),
+                'section': ing.get('section'),
+            })
+
+    recipe = update_recipe(recipe_id, data, ingredient_rows=ingredient_rows)
     if not recipe:
         return jsonify({'error': 'Recipe not found'}), 404
     return jsonify(recipe)

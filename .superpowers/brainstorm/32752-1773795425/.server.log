@@ -1,0 +1,4 @@
+{"type":"server-started","port":51051,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:51051","screen_dir":"/Users/whitneyhaskin/Documents/1500 Calorie Meal Plan/.superpowers/brainstorm/32752-1773795425"}
+{"type":"screen-added","file":"/Users/whitneyhaskin/Documents/1500 Calorie Meal Plan/.superpowers/brainstorm/32752-1773795425/instructions-mockup.html"}
+{"type":"screen-added","file":"/Users/whitneyhaskin/Documents/1500 Calorie Meal Plan/.superpowers/brainstorm/32752-1773795425/instructions-mockup-v2.html"}
+{"type":"server-stopped","reason":"idle timeout"}

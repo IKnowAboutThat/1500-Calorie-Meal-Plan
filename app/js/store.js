@@ -452,6 +452,8 @@ const DEFAULT_SETTINGS = {
     fiberMax: 40,
   },
   adrenalCocktailsPerDay: 2,
+  adrenalRecipeId: null,
+  adrenalCountPerDay: 2,
 };
 
 /**
@@ -461,7 +463,7 @@ const DEFAULT_SETTINGS = {
 export function getSettings() {
   const stored = getItem('mp_settings', null);
   if (!stored) return { ...DEFAULT_SETTINGS, dailyTargets: { ...DEFAULT_SETTINGS.dailyTargets } };
-  return {
+  const merged = {
     ...DEFAULT_SETTINGS,
     ...stored,
     dailyTargets: {
@@ -469,6 +471,11 @@ export function getSettings() {
       ...(stored.dailyTargets || {}),
     },
   };
+  // Migrate: if adrenalCountPerDay was never set, inherit from adrenalCocktailsPerDay
+  if (stored.adrenalCountPerDay == null && stored.adrenalCocktailsPerDay != null) {
+    merged.adrenalCountPerDay = stored.adrenalCocktailsPerDay;
+  }
+  return merged;
 }
 
 /**
