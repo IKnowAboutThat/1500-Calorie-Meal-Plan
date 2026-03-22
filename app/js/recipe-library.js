@@ -331,22 +331,61 @@ function buildRecipeDetailHTML(recipe) {
   const recipeTags = store.getRecipeTags();
   const tags = recipeTags[recipe.id] || [];
 
+  const totalCal = recipe.ingredients.reduce((sum, i) => sum + (i.calories || 0), 0);
+  const totalProtein = recipe.ingredients.reduce((sum, i) => sum + (i.protein || 0), 0);
+  const totalFiber = recipe.ingredients.reduce((sum, i) => sum + (i.fiber || 0), 0);
+
+  // Calorie contribution bars per ingredient
   const ingredientRows = recipe.ingredients
-    .map(
-      (ing) => `
+    .map((ing) => {
+      const calPct = totalCal > 0 ? ((ing.calories || 0) / totalCal * 100) : 0;
+      const proPct = totalProtein > 0 ? ((ing.protein || 0) / totalProtein * 100) : 0;
+      return `
       <tr>
-        <td>${escapeHTML(ing.name)}</td>
-        <td>${ing.amount}${ing.unit}</td>
-        <td>${ing.calories}</td>
-        <td>${ing.protein}g</td>
-        <td>${ing.fiber}g</td>
-      </tr>`
-    )
+        <td>
+          <div>${escapeHTML(ing.name)}</div>
+          <div class="recipe-detail__cal-bar" style="margin-top:0.25rem;">
+            <div class="recipe-detail__cal-bar-fill" style="width:${calPct.toFixed(1)}%;"></div>
+          </div>
+        </td>
+        <td style="white-space:nowrap;">${ing.amount}${ing.unit}</td>
+        <td>${(ing.calories || 0).toFixed(0)}</td>
+        <td>${(ing.protein || 0).toFixed(1)}g</td>
+        <td>${(ing.fiber || 0).toFixed(1)}g</td>
+      </tr>`;
+    })
     .join('');
 
-  const totalCal = recipe.ingredients.reduce((sum, i) => sum + i.calories, 0);
-  const totalProtein = recipe.ingredients.reduce((sum, i) => sum + i.protein, 0);
-  const totalFiber = recipe.ingredients.reduce((sum, i) => sum + i.fiber, 0);
+  // Protein source breakdown — group by ingredient category
+  const proteinSources = recipe.ingredients
+    .filter(i => (i.protein || 0) > 1)
+    .sort((a, b) => (b.protein || 0) - (a.protein || 0))
+    .map(i => {
+      const pct = totalProtein > 0 ? ((i.protein || 0) / totalProtein * 100) : 0;
+      return `
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
+          <span style="flex:1;font-size:0.85rem;">${escapeHTML(i.name)}</span>
+          <span style="font-size:0.8rem;color:var(--color-text-secondary);min-width:3.5rem;text-align:right;">${(i.protein || 0).toFixed(1)}g</span>
+          <div style="width:60px;height:6px;background:var(--color-border-light);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${pct.toFixed(1)}%;background:var(--color-macro-protein);border-radius:3px;"></div>
+          </div>
+          <span style="font-size:0.75rem;color:var(--color-text-secondary);min-width:2.5rem;text-align:right;">${pct.toFixed(0)}%</span>
+        </div>`;
+    })
+    .join('');
+
+  // Calorie density per ingredient (cal per gram)
+  const densityItems = recipe.ingredients
+    .filter(i => (i.amount || 0) > 0)
+    .map(i => ({ ...i, density: (i.calories || 0) / i.amount }))
+    .sort((a, b) => b.density - a.density)
+    .slice(0, 5)
+    .map(i => `
+      <div style="display:flex;justify-content:space-between;font-size:0.85rem;padding:0.2rem 0;">
+        <span>${escapeHTML(i.name)}</span>
+        <span style="color:var(--color-text-secondary);">${i.density.toFixed(1)} cal/g</span>
+      </div>`)
+    .join('');
 
   const tagPills = tags
     .map(
@@ -359,6 +398,11 @@ function buildRecipeDetailHTML(recipe) {
     .join('');
 
   const phaseBadgeClass = recipe.phase === 'luteal' ? 'badge-phase-luteal' : 'badge-phase-standard';
+
+  // Percentage of daily targets (1500 cal, 135g protein, 35g fiber)
+  const calPctDaily = (totalCal / 1500 * 100).toFixed(0);
+  const proPctDaily = (totalProtein / 135 * 100).toFixed(0);
+  const fibPctDaily = (totalFiber / 35 * 100).toFixed(0);
 
   return `
     <div class="recipe-detail" data-detail-recipe-id="${escapeHTML(recipe.id)}">
@@ -376,16 +420,22 @@ function buildRecipeDetailHTML(recipe) {
 
       <div class="recipe-detail__macros">
         <div class="recipe-detail__macro-item">
-          <div class="recipe-detail__macro-value" style="color:var(--color-macro-cal);">${recipe.calories}</div>
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-cal);">${totalCal.toFixed(0)}</div>
           <div class="recipe-detail__macro-label">Calories</div>
+          <div class="recipe-detail__macro-daily">${calPctDaily}% daily</div>
+          <div class="recipe-detail__daily-bar"><div class="recipe-detail__daily-bar-fill recipe-detail__daily-bar-fill--cal" style="width:${Math.min(parseFloat(calPctDaily), 100)}%;"></div></div>
         </div>
         <div class="recipe-detail__macro-item">
-          <div class="recipe-detail__macro-value" style="color:var(--color-macro-protein);">${recipe.protein}g</div>
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-protein);">${totalProtein.toFixed(1)}g</div>
           <div class="recipe-detail__macro-label">Protein</div>
+          <div class="recipe-detail__macro-daily">${proPctDaily}% daily</div>
+          <div class="recipe-detail__daily-bar"><div class="recipe-detail__daily-bar-fill recipe-detail__daily-bar-fill--pro" style="width:${Math.min(parseFloat(proPctDaily), 100)}%;"></div></div>
         </div>
         <div class="recipe-detail__macro-item">
-          <div class="recipe-detail__macro-value" style="color:var(--color-macro-fiber);">${recipe.fiber}g</div>
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-fiber);">${totalFiber.toFixed(1)}g</div>
           <div class="recipe-detail__macro-label">Fiber</div>
+          <div class="recipe-detail__macro-daily">${fibPctDaily}% daily</div>
+          <div class="recipe-detail__daily-bar"><div class="recipe-detail__daily-bar-fill recipe-detail__daily-bar-fill--fib" style="width:${Math.min(parseFloat(fibPctDaily), 100)}%;"></div></div>
         </div>
       </div>
 
@@ -404,7 +454,7 @@ function buildRecipeDetailHTML(recipe) {
               <tr>
                 <th>Ingredient</th>
                 <th>Amount</th>
-                <th>Calories</th>
+                <th>Cal</th>
                 <th>Protein</th>
                 <th>Fiber</th>
               </tr>
@@ -416,12 +466,23 @@ function buildRecipeDetailHTML(recipe) {
               <tr style="font-weight:700;">
                 <td>Total</td>
                 <td></td>
-                <td>${totalCal}</td>
+                <td>${totalCal.toFixed(0)}</td>
                 <td>${totalProtein.toFixed(1)}g</td>
                 <td>${totalFiber.toFixed(1)}g</td>
               </tr>
             </tfoot>
           </table>
+        </div>
+      </div>
+
+      <div class="recipe-detail__nutrition-panels" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+        <div class="card" style="padding:1rem;">
+          <h4 style="margin-bottom:0.5rem;font-size:0.9rem;color:var(--color-text-secondary);">Protein Sources</h4>
+          ${proteinSources || '<span class="text-sm text-secondary">No significant protein sources</span>'}
+        </div>
+        <div class="card" style="padding:1rem;">
+          <h4 style="margin-bottom:0.5rem;font-size:0.9rem;color:var(--color-text-secondary);">Calorie Density (top 5)</h4>
+          ${densityItems || '<span class="text-sm text-secondary">No data</span>'}
         </div>
       </div>
 
@@ -470,7 +531,8 @@ function rerenderTagPills(recipeId) {
 // ============================================================
 
 export async function openRecipeModal(recipeId) {
-  const recipe = getRecipes().find((r) => r.id === recipeId);
+  const numId = typeof recipeId === 'string' ? parseInt(recipeId, 10) : recipeId;
+  const recipe = getRecipes().find((r) => r.id === numId || r.id === recipeId);
   if (!recipe) return;
 
   const html = buildRecipeDetailHTML(recipe);

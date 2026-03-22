@@ -5,6 +5,7 @@ from flask_cors import CORS
 from db import init_db
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False
 CORS(app, origins=["http://localhost:*", "http://127.0.0.1:*"])
 
 
