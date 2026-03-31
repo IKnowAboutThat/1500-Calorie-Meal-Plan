@@ -1,0 +1,1395 @@
+/**
+ * recipe-library.js - Recipe browsing, filtering, and detail modal module.
+ *
+ * Renders a searchable, filterable recipe grid with detail modals,
+ * favorite toggling, and user tag management.
+ */
+
+import { getRecipes, loadRecipes } from './recipe-cache.js';
+import { updateRecipe } from './api.js';
+import * as store from './store.js';
+
+// Dynamic import to avoid circular deps with app.js
+async function getApp() {
+  return await import('./app.js');
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+
+/**
+ * Extract sorted unique values for a given key across all recipes.
+ */
+function uniqueValues(key) {
+  const set = new Set(getRecipes().map((r) => r[key]));
+  return Array.from(set).sort();
+}
+
+/**
+ * Simple debounce utility.
+ */
+function debounce(fn, delay) {
+  let timer;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+/**
+ * Escape HTML entities to prevent XSS in user-provided content.
+ */
+function escapeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/**
+ * Capitalize first letter of a string.
+ */
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Rebuild the protein multi-select toggle button content.
+ */
+function rebuildProteinToggle(container) {
+  const toggle = container.querySelector('#protein-multiselect-toggle');
+  if (!toggle) return;
+  if (filterState.protein.length === 0) {
+    toggle.innerHTML = 'All Proteins';
+  } else {
+    toggle.innerHTML = filterState.protein
+      .map(p => `<span class="filter-pill">${escapeHTML(capitalize(p))}<span class="filter-pill__remove" data-protein="${escapeHTML(p)}">&times;</span></span>`)
+      .join('');
+  }
+}
+
+/**
+ * Sync checkbox states in the protein dropdown with filterState.
+ */
+function syncProteinCheckboxes(container) {
+  const dropdown = container.querySelector('#protein-multiselect-dropdown');
+  if (!dropdown) return;
+  dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.checked = filterState.protein.includes(cb.value);
+  });
+}
+
+/**
+ * Close protein multi-select dropdown when clicking outside.
+ * Named function so it can be removed on page navigation (prevents leaks).
+ */
+function handleDropdownOutsideClick(e) {
+  if (!e.target.closest('#protein-multiselect')) {
+    const dropdown = document.querySelector('#protein-multiselect-dropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+  }
+}
+
+// ============================================================
+// Filter state
+// ============================================================
+
+let filterState = {
+  search: '',
+  cuisine: '',
+  protein: [],            // array of selected protein sources
+  mealType: '',       // '' = all, 'meal', 'snack'
+  favoritesOnly: false,
+  cookCountMax: '',   // '' = no filter, '0' = never cooked, '3'/'5'/'10' = less than N
+  sort: 'name-asc',
+  fiberTarget: '',       // fiber grams target (string, '' = no filter)
+  proteinTarget: '',     // protein grams target (string, '' = no filter)
+  margin: store.getItem('mp_filterMargin', 5),  // +/- margin for numeric filters, persisted
+};
+
+// ============================================================
+// Filtering & sorting logic
+// ============================================================
+
+function getFilteredRecipes() {
+  let filtered = [...getRecipes()];
+
+  // Search filter: match recipe name or any ingredient name
+  if (filterState.search) {
+    const q = filterState.search.toLowerCase();
+    filtered = filtered.filter((r) => {
+      if (r.name.toLowerCase().includes(q)) return true;
+      return r.ingredients.some((ing) => ing.name.toLowerCase().includes(q));
+    });
+  }
+
+  // Cuisine filter
+  if (filterState.cuisine) {
+    filtered = filtered.filter((r) => r.cuisine === filterState.cuisine);
+  }
+
+  // Protein source filter (multi-select)
+  if (filterState.protein.length > 0) {
+    filtered = filtered.filter((r) => filterState.protein.includes(r.mainProtein));
+  }
+
+  // Fiber target filter (with margin)
+  if (filterState.fiberTarget !== '') {
+    const target = parseFloat(filterState.fiberTarget);
+    if (!isNaN(target)) {
+      const margin = filterState.margin;
+      filtered = filtered.filter((r) => {
+        const fiber = r.fiber ?? 0;
+        return fiber >= target - margin && fiber <= target + margin;
+      });
+    }
+  }
+
+  // Protein content filter (with margin)
+  if (filterState.proteinTarget !== '') {
+    const target = parseFloat(filterState.proteinTarget);
+    if (!isNaN(target)) {
+      const margin = filterState.margin;
+      filtered = filtered.filter((r) => {
+        const protein = r.protein ?? 0;
+        return protein >= target - margin && protein <= target + margin;
+      });
+    }
+  }
+
+  // Meal type filter
+  if (filterState.mealType) {
+    filtered = filtered.filter((r) => r.mealType === filterState.mealType);
+  }
+
+  // Favorites filter
+  if (filterState.favoritesOnly) {
+    const favorites = store.getFavorites();
+    filtered = filtered.filter((r) => favorites.includes(r.id));
+  }
+
+  // Cook count filter
+  if (filterState.cookCountMax !== '') {
+    const maxCount = parseInt(filterState.cookCountMax, 10);
+    const counts = store.getCookCounts();
+    if (maxCount === 0) {
+      filtered = filtered.filter((r) => !(counts[r.id]));
+    } else {
+      filtered = filtered.filter((r) => (counts[r.id] || 0) < maxCount);
+    }
+  }
+
+  // Sort
+  const cookCounts = store.getCookCounts();
+  filtered.sort((a, b) => {
+    switch (filterState.sort) {
+      case 'name-asc':
+        return a.name.localeCompare(b.name);
+      case 'name-desc':
+        return b.name.localeCompare(a.name);
+      case 'cal-asc':
+        return a.calories - b.calories;
+      case 'cal-desc':
+        return b.calories - a.calories;
+      case 'protein-asc':
+        return a.protein - b.protein;
+      case 'protein-desc':
+        return b.protein - a.protein;
+      case 'fiber-asc':
+        return (a.fiber ?? 0) - (b.fiber ?? 0);
+      case 'fiber-desc':
+        return (b.fiber ?? 0) - (a.fiber ?? 0);
+      case 'cook-desc':
+        return (cookCounts[b.id] || 0) - (cookCounts[a.id] || 0);
+      case 'cook-asc':
+        return (cookCounts[a.id] || 0) - (cookCounts[b.id] || 0);
+      default:
+        return 0;
+    }
+  });
+
+  return filtered;
+}
+
+function hasActiveFilters() {
+  return (
+    filterState.search !== '' ||
+    filterState.cuisine !== '' ||
+    filterState.protein.length > 0 ||
+    filterState.mealType !== '' ||
+    filterState.favoritesOnly ||
+    filterState.cookCountMax !== '' ||
+    filterState.fiberTarget !== '' ||
+    filterState.proteinTarget !== ''
+  );
+}
+
+function resetFilters(container) {
+  filterState = {
+    search: '',
+    cuisine: '',
+    protein: [],
+    mealType: '',
+    favoritesOnly: false,
+    cookCountMax: '',
+    sort: filterState.sort,  // preserve sort preference
+    fiberTarget: '',
+    proteinTarget: '',
+    margin: store.getItem('mp_filterMargin', 5),
+  };
+
+  // Reset DOM controls
+  const searchInput = container.querySelector('#recipe-search');
+  if (searchInput) searchInput.value = '';
+
+  const cuisineSelect = container.querySelector('#filter-cuisine');
+  if (cuisineSelect) cuisineSelect.value = '';
+
+  rebuildProteinToggle(container);
+  syncProteinCheckboxes(container);
+
+  const cookCountSelect = container.querySelector('#filter-cook-count');
+  if (cookCountSelect) cookCountSelect.value = '';
+
+  const fiberInput = container.querySelector('#filter-fiber');
+  if (fiberInput) fiberInput.value = '';
+
+  const proteinContentInput = container.querySelector('#filter-protein-content');
+  if (proteinContentInput) proteinContentInput.value = '';
+
+  const marginInput = container.querySelector('#filter-margin');
+  if (marginInput) marginInput.value = String(filterState.margin);
+
+  // Reset meal type buttons
+  container.querySelectorAll('[data-meal-type]').forEach((btn) => {
+    btn.classList.toggle('btn-primary', btn.dataset.mealType === '');
+    btn.classList.toggle('btn-secondary', btn.dataset.mealType !== '');
+  });
+
+  // Reset favorites button
+  const favBtn = container.querySelector('#filter-favorites');
+  if (favBtn) favBtn.classList.remove('favorite--active');
+
+  renderGrid(container);
+}
+
+// ============================================================
+// Render: Filter Bar
+// ============================================================
+
+function buildFilterBarHTML() {
+  const cuisines = uniqueValues('cuisine');
+  const proteins = uniqueValues('mainProtein');
+
+  const cuisineOptions = cuisines
+    .map((c) => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`)
+    .join('');
+
+  return `
+    <div class="filter-bar">
+      <input type="search" id="recipe-search" placeholder="Search recipes..." value="${escapeHTML(filterState.search)}">
+
+      <select id="filter-cuisine">
+        <option value="">All Cuisines</option>
+        ${cuisineOptions}
+      </select>
+
+      <div class="filter-multiselect" id="protein-multiselect">
+        <button class="filter-multiselect__toggle" id="protein-multiselect-toggle" type="button">
+          ${filterState.protein.length === 0
+            ? 'All Proteins'
+            : filterState.protein.map(p => `<span class="filter-pill">${escapeHTML(capitalize(p))}<span class="filter-pill__remove" data-protein="${escapeHTML(p)}">&times;</span></span>`).join('')}
+        </button>
+        <div class="filter-multiselect__dropdown hidden" id="protein-multiselect-dropdown">
+          ${proteins.map(p => `
+            <label class="filter-multiselect__option">
+              <input type="checkbox" value="${escapeHTML(p)}" ${filterState.protein.includes(p) ? 'checked' : ''}>
+              ${escapeHTML(capitalize(p))}
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="filter-numeric-group">
+        <input type="number" id="filter-fiber" placeholder="Fiber (g)" min="0" step="1"
+          value="${filterState.fiberTarget}" class="filter-numeric-input">
+        <input type="number" id="filter-protein-content" placeholder="Protein (g)" min="0" step="1"
+          value="${filterState.proteinTarget}" class="filter-numeric-input">
+        <label class="filter-margin-label" title="Search range: target +/- this value">
+          &plusmn;<input type="number" id="filter-margin" min="0" max="50" step="1"
+            value="${filterState.margin}" class="filter-margin-input">g
+        </label>
+      </div>
+
+      <div class="flex gap-1">
+        <button class="btn ${filterState.mealType === '' ? 'btn-primary' : 'btn-secondary'} btn-sm" data-meal-type="">All</button>
+        <button class="btn ${filterState.mealType === 'meal' ? 'btn-primary' : 'btn-secondary'} btn-sm" data-meal-type="meal">Meals</button>
+        <button class="btn ${filterState.mealType === 'snack' ? 'btn-primary' : 'btn-secondary'} btn-sm" data-meal-type="snack">Snacks</button>
+      </div>
+
+      <button class="favorite-btn ${filterState.favoritesOnly ? 'favorite--active' : ''}" id="filter-favorites" title="Show favorites only" style="font-size:1.4rem;">&#9829;</button>
+
+      <select id="filter-cook-count" title="Filter by cook count">
+        <option value="">All Cook Counts</option>
+        <option value="0"${filterState.cookCountMax === '0' ? ' selected' : ''}>Never Cooked</option>
+        <option value="3"${filterState.cookCountMax === '3' ? ' selected' : ''}>&lt; 3 times</option>
+        <option value="5"${filterState.cookCountMax === '5' ? ' selected' : ''}>&lt; 5 times</option>
+        <option value="10"${filterState.cookCountMax === '10' ? ' selected' : ''}>&lt; 10 times</option>
+      </select>
+
+      <select id="filter-sort">
+        <option value="name-asc"${filterState.sort === 'name-asc' ? ' selected' : ''}>Name A-Z</option>
+        <option value="name-desc"${filterState.sort === 'name-desc' ? ' selected' : ''}>Name Z-A</option>
+        <option value="cal-asc"${filterState.sort === 'cal-asc' ? ' selected' : ''}>Calories &#8593;</option>
+        <option value="cal-desc"${filterState.sort === 'cal-desc' ? ' selected' : ''}>Calories &#8595;</option>
+        <option value="protein-asc"${filterState.sort === 'protein-asc' ? ' selected' : ''}>Protein &#8593;</option>
+        <option value="protein-desc"${filterState.sort === 'protein-desc' ? ' selected' : ''}>Protein &#8595;</option>
+        <option value="fiber-asc"${filterState.sort === 'fiber-asc' ? ' selected' : ''}>Fiber &#8593;</option>
+        <option value="fiber-desc"${filterState.sort === 'fiber-desc' ? ' selected' : ''}>Fiber &#8595;</option>
+        <option value="cook-desc"${filterState.sort === 'cook-desc' ? ' selected' : ''}>Most Cooked</option>
+        <option value="cook-asc"${filterState.sort === 'cook-asc' ? ' selected' : ''}>Least Cooked</option>
+      </select>
+    </div>
+
+    <div class="flex-between mb-1" style="align-items:center;">
+      <span id="results-count" class="text-sm text-secondary"></span>
+      <button class="btn btn-secondary btn-sm ${hasActiveFilters() ? '' : 'hidden'}" id="clear-filters">Clear Filters</button>
+    </div>
+  `;
+}
+
+// ============================================================
+// Render: Recipe Cards
+// ============================================================
+
+function buildRecipeCardHTML(recipe) {
+  const isFav = store.isFavorite(recipe.id);
+  const cookCount = store.getCookCount(recipe.id);
+
+  let cookBadgeHTML = '';
+  if (cookCount > 0) {
+    let tierClass;
+    if (cookCount <= 2) tierClass = 'badge-cook-tier1';
+    else if (cookCount <= 5) tierClass = 'badge-cook-tier2';
+    else if (cookCount <= 10) tierClass = 'badge-cook-tier3';
+    else tierClass = 'badge-cook-tier4';
+    cookBadgeHTML = `<span class="badge badge-cook ${tierClass}" title="Cooked ${cookCount} time${cookCount !== 1 ? 's' : ''}">${cookCount}</span>`;
+  }
+
+  return `
+    <div class="recipe-card" data-recipe-id="${escapeHTML(recipe.id)}">
+      <div class="recipe-card__header" style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <h3 class="recipe-card__name">${escapeHTML(recipe.name)}</h3>
+        <button class="favorite-btn ${isFav ? 'favorite--active' : ''}" data-action="toggle-favorite" data-recipe-id="${escapeHTML(recipe.id)}">&#9829;</button>
+      </div>
+      <div class="recipe-card__badges">
+        <span class="badge badge-cuisine">${escapeHTML(recipe.cuisine)}</span>
+        <span class="badge badge-tag">${escapeHTML(recipe.mainProtein)}</span>
+      </div>
+      <div class="recipe-card__macros">
+        <span class="badge badge-cal">${recipe.calories} cal</span>
+        <span class="badge badge-protein">${recipe.protein}g P</span>
+        <span class="badge badge-fiber">${recipe.fiber}g F</span>
+      </div>
+      ${cookBadgeHTML}
+    </div>
+  `;
+}
+
+function renderGrid(container) {
+  const filtered = getFilteredRecipes();
+  const gridEl = container.querySelector('#recipe-grid');
+  const countEl = container.querySelector('#results-count');
+  const clearBtn = container.querySelector('#clear-filters');
+
+  if (gridEl) {
+    if (filtered.length === 0) {
+      gridEl.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <p>No recipes match your filters.</p>
+          <p class="text-sm">Try adjusting your search or clearing filters.</p>
+        </div>
+      `;
+    } else {
+      gridEl.innerHTML = filtered.map(buildRecipeCardHTML).join('');
+    }
+  }
+
+  if (countEl) {
+    countEl.textContent = `Showing ${filtered.length} of ${getRecipes().length} recipes`;
+  }
+
+  if (clearBtn) {
+    clearBtn.classList.toggle('hidden', !hasActiveFilters());
+  }
+}
+
+// ============================================================
+// Render: Recipe Detail Modal
+// ============================================================
+
+function buildRecipeDetailHTML(recipe) {
+  const isFav = store.isFavorite(recipe.id);
+  const recipeTags = store.getRecipeTags();
+  const tags = recipeTags[recipe.id] || [];
+
+  let ingredientRows = '';
+  let currentSection = null;
+  for (const ing of recipe.ingredients) {
+    if (ing.section !== currentSection) {
+      currentSection = ing.section;
+      if (currentSection) {
+        ingredientRows += `
+      <tr class="ingredient-section-header">
+        <td colspan="5"><h4 style="margin:0.5rem 0 0.25rem;font-size:0.95rem;">${escapeHTML(currentSection)}</h4></td>
+      </tr>`;
+      }
+    }
+    ingredientRows += `
+      <tr${ing.section ? ' style="font-size:0.9rem;opacity:0.85;"' : ''}>
+        <td>${ing.section ? '&ensp;' : ''}${escapeHTML(ing.name)}</td>
+        <td>${ing.amount}${ing.unit}</td>
+        <td>${ing.calories}</td>
+        <td>${ing.protein}g</td>
+        <td>${ing.fiber}g</td>
+      </tr>`;
+  }
+
+  const totalCal = recipe.ingredients.reduce((sum, i) => sum + i.calories, 0);
+  const totalProtein = recipe.ingredients.reduce((sum, i) => sum + i.protein, 0);
+  const totalFiber = recipe.ingredients.reduce((sum, i) => sum + i.fiber, 0);
+
+  const tagPills = tags
+    .map(
+      (tag) => `
+      <span class="badge badge-tag" style="display:inline-flex;align-items:center;gap:0.25rem;">
+        ${escapeHTML(tag)}
+        <button class="tag-remove" data-tag="${escapeHTML(tag)}" data-recipe-id="${escapeHTML(recipe.id)}" style="background:none;border:none;cursor:pointer;font-size:0.9rem;color:var(--color-text-secondary);padding:0;line-height:1;">&times;</button>
+      </span>`
+    )
+    .join('');
+
+  const phaseBadgeClass = recipe.phase === 'luteal' ? 'badge-phase-luteal' : 'badge-phase-standard';
+
+  return `
+    <div class="recipe-detail" data-detail-recipe-id="${escapeHTML(recipe.id)}">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+        <button class="btn btn-secondary btn-sm" data-action="edit-recipe" data-recipe-id="${escapeHTML(recipe.id)}">Edit</button>
+        <button class="modal-close" data-action="close-modal">&times;</button>
+      </div>
+
+      <div class="recipe-detail__header">
+        <h2>${escapeHTML(recipe.name)}</h2>
+        <div class="flex gap-1 flex-wrap" style="margin-top:0.5rem;">
+          <span class="badge badge-cuisine">${escapeHTML(recipe.cuisine)}</span>
+          <span class="badge badge-tag">${escapeHTML(capitalize(recipe.mainProtein))}</span>
+          <span class="badge badge-tag">${escapeHTML(capitalize(recipe.mealType))}</span>
+          <span class="badge ${phaseBadgeClass}">${escapeHTML(capitalize(recipe.phase))}</span>
+        </div>
+      </div>
+
+      ${recipe.description ? `<p class="recipe-detail__description">${escapeHTML(recipe.description)}</p>` : ''}
+
+      <div class="recipe-detail__macros">
+        <div class="recipe-detail__macro-item">
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-cal);">${recipe.calories}</div>
+          <div class="recipe-detail__macro-label">Calories</div>
+        </div>
+        <div class="recipe-detail__macro-item">
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-protein);">${recipe.protein}g</div>
+          <div class="recipe-detail__macro-label">Protein</div>
+        </div>
+        <div class="recipe-detail__macro-item">
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-fiber);">${recipe.fiber}g</div>
+          <div class="recipe-detail__macro-label">Fiber</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <button class="favorite-btn ${isFav ? 'favorite--active' : ''}" data-action="toggle-favorite-detail" data-recipe-id="${escapeHTML(recipe.id)}" style="font-size:1.4rem;">
+          &#9829; ${isFav ? 'Favorited' : 'Add to Favorites'}
+        </button>
+      </div>
+
+      <div class="recipe-detail__ingredients">
+        <h3>Ingredients</h3>
+        <div id="scale-controls-${escapeHTML(recipe.id)}"></div>
+        <div id="scaled-ingredients-${escapeHTML(recipe.id)}">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Amount</th>
+                <th>Calories</th>
+                <th>Protein</th>
+                <th>Fiber</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ingredientRows}
+            </tbody>
+            <tfoot>
+              <tr style="font-weight:700;">
+                <td>Total</td>
+                <td></td>
+                <td>${totalCal.toFixed(1)}</td>
+                <td>${totalProtein.toFixed(1)}g</td>
+                <td>${totalFiber.toFixed(1)}g</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="recipe-detail__instructions">
+        ${(recipe.instructions || []).length > 0 ? `
+          <button class="recipe-detail__instructions-toggle" data-action="toggle-instructions">
+            <span class="arrow">&#9654;</span> Instructions (${recipe.instructions.length} step${recipe.instructions.length !== 1 ? 's' : ''})
+          </button>
+          <ol style="display:none;">
+            ${recipe.instructions.map(step => `<li><span>${escapeHTML(step)}</span></li>`).join('')}
+          </ol>
+        ` : `
+          <button class="recipe-detail__instructions-toggle" style="cursor:default;opacity:0.5;">
+            <span class="arrow">&#9654;</span> Instructions
+          </button>
+          <p class="recipe-detail__instructions-empty">No cooking instructions available for this recipe.</p>
+        `}
+      </div>
+
+      <div class="recipe-detail__tags" data-tags-section="${escapeHTML(recipe.id)}">
+        <h3>Tags</h3>
+        <div class="flex flex-wrap gap-1 mb-1" id="tag-pills-${escapeHTML(recipe.id)}">
+          ${tagPills || '<span class="text-sm text-secondary">No tags yet</span>'}
+        </div>
+        <div class="flex gap-1" style="align-items:center;">
+          <input type="text" id="tag-input-${escapeHTML(recipe.id)}" placeholder="Add a tag..." style="width:auto;flex:1;max-width:200px;">
+          <span class="text-sm text-secondary">Press Enter to add</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Re-render just the tag pills section inside an open modal.
+ */
+function rerenderTagPills(recipeId) {
+  const pillsContainer = document.querySelector(`#tag-pills-${CSS.escape(recipeId)}`);
+  if (!pillsContainer) return;
+
+  const recipeTags = store.getRecipeTags();
+  const tags = recipeTags[recipeId] || [];
+
+  if (tags.length === 0) {
+    pillsContainer.innerHTML = '<span class="text-sm text-secondary">No tags yet</span>';
+    return;
+  }
+
+  pillsContainer.innerHTML = tags
+    .map(
+      (tag) => `
+      <span class="badge badge-tag" style="display:inline-flex;align-items:center;gap:0.25rem;">
+        ${escapeHTML(tag)}
+        <button class="tag-remove" data-tag="${escapeHTML(tag)}" data-recipe-id="${escapeHTML(recipeId)}" style="background:none;border:none;cursor:pointer;font-size:0.9rem;color:var(--color-text-secondary);padding:0;line-height:1;">&times;</button>
+      </span>`
+    )
+    .join('');
+}
+
+// ============================================================
+// Edit Mode: inline recipe editing in the detail modal
+// ============================================================
+
+/**
+ * Build edit-mode HTML that replaces the read-only header/description area.
+ * Ingredients and instructions remain read-only.
+ */
+function buildEditModeHTML(recipe) {
+  const isFav = store.isFavorite(recipe.id);
+  const recipeTags = store.getRecipeTags();
+  const tags = recipeTags[recipe.id] || [];
+
+  // Build the same ingredient rows and instructions as read-only
+  let ingredientRows = '';
+  let currentSection = null;
+  for (const ing of recipe.ingredients) {
+    if (ing.section !== currentSection) {
+      currentSection = ing.section;
+      if (currentSection) {
+        ingredientRows += `
+      <tr class="ingredient-section-header">
+        <td colspan="5"><h4 style="margin:0.5rem 0 0.25rem;font-size:0.95rem;">${escapeHTML(currentSection)}</h4></td>
+      </tr>`;
+      }
+    }
+    ingredientRows += `
+      <tr${ing.section ? ' style="font-size:0.9rem;opacity:0.85;"' : ''}>
+        <td>${ing.section ? '&ensp;' : ''}${escapeHTML(ing.name)}</td>
+        <td>${ing.amount}${ing.unit}</td>
+        <td>${ing.calories}</td>
+        <td>${ing.protein}g</td>
+        <td>${ing.fiber}g</td>
+      </tr>`;
+  }
+
+  const totalCal = recipe.ingredients.reduce((sum, i) => sum + i.calories, 0);
+  const totalProtein = recipe.ingredients.reduce((sum, i) => sum + i.protein, 0);
+  const totalFiber = recipe.ingredients.reduce((sum, i) => sum + i.fiber, 0);
+
+  const tagPills = tags
+    .map(
+      (tag) => `
+      <span class="badge badge-tag" style="display:inline-flex;align-items:center;gap:0.25rem;">
+        ${escapeHTML(tag)}
+        <button class="tag-remove" data-tag="${escapeHTML(tag)}" data-recipe-id="${escapeHTML(recipe.id)}" style="background:none;border:none;cursor:pointer;font-size:0.9rem;color:var(--color-text-secondary);padding:0;line-height:1;">&times;</button>
+      </span>`
+    )
+    .join('');
+
+  return `
+    <div class="recipe-detail" data-detail-recipe-id="${escapeHTML(recipe.id)}">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:0.5rem;margin-bottom:0.25rem;">
+        <a href="#edit-recipe/${escapeHTML(recipe.id)}" data-action="full-editor" data-recipe-id="${escapeHTML(recipe.id)}" class="btn btn-secondary btn-sm" style="text-decoration:none;">Full Editor</a>
+        <button class="btn btn-primary btn-sm" data-action="save-recipe" data-recipe-id="${escapeHTML(recipe.id)}">Save</button>
+        <button class="btn btn-secondary btn-sm" data-action="cancel-edit" data-recipe-id="${escapeHTML(recipe.id)}">Cancel</button>
+        <button class="modal-close" data-action="close-modal">&times;</button>
+      </div>
+
+      <div class="recipe-detail__header">
+        <div style="margin-bottom:0.75rem;">
+          <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Name</label>
+          <input type="text" id="edit-name" value="${escapeHTML(recipe.name)}" style="width:100%;font-size:1.2rem;font-weight:700;">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Cuisine</label>
+            <input type="text" id="edit-cuisine" value="${escapeHTML(recipe.cuisine || '')}">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Main Protein</label>
+            <input type="text" id="edit-main-protein" value="${escapeHTML(recipe.mainProtein || '')}">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Meal Type</label>
+            <select id="edit-meal-type">
+              <option value="meal"${recipe.mealType === 'meal' ? ' selected' : ''}>Meal</option>
+              <option value="snack"${recipe.mealType === 'snack' ? ' selected' : ''}>Snack</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Phase</label>
+            <select id="edit-phase">
+              <option value="standard"${recipe.phase === 'standard' ? ' selected' : ''}>Standard</option>
+              <option value="luteal"${recipe.phase === 'luteal' ? ' selected' : ''}>Luteal</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.75rem;">
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Servings</label>
+            <input type="number" id="edit-servings" value="${recipe.servings ?? 1}" min="1" step="1">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Prep (min)</label>
+            <input type="number" id="edit-prep-time" value="${recipe.prep_time_min ?? recipe.prepTimeMin ?? ''}" min="0" step="1">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Cook (min)</label>
+            <input type="number" id="edit-cook-time" value="${recipe.cook_time_min ?? recipe.cookTimeMin ?? ''}" min="0" step="1">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Marinate (min)</label>
+            <input type="number" id="edit-marinate-time" value="${recipe.marinate_time_min ?? recipe.marinateTimeMin ?? ''}" min="0" step="1">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:0.75rem;">
+        <label style="display:block;font-size:0.8rem;color:var(--color-text-secondary);margin-bottom:0.25rem;">Description</label>
+        <textarea id="edit-description" rows="3" style="width:100%;resize:vertical;">${escapeHTML(recipe.description || '')}</textarea>
+      </div>
+
+      <div class="recipe-detail__macros">
+        <div class="recipe-detail__macro-item">
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-cal);">${recipe.calories}</div>
+          <div class="recipe-detail__macro-label">Calories</div>
+        </div>
+        <div class="recipe-detail__macro-item">
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-protein);">${recipe.protein}g</div>
+          <div class="recipe-detail__macro-label">Protein</div>
+        </div>
+        <div class="recipe-detail__macro-item">
+          <div class="recipe-detail__macro-value" style="color:var(--color-macro-fiber);">${recipe.fiber}g</div>
+          <div class="recipe-detail__macro-label">Fiber</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <button class="favorite-btn ${isFav ? 'favorite--active' : ''}" data-action="toggle-favorite-detail" data-recipe-id="${escapeHTML(recipe.id)}" style="font-size:1.4rem;">
+          &#9829; ${isFav ? 'Favorited' : 'Add to Favorites'}
+        </button>
+      </div>
+
+      <div class="recipe-detail__ingredients">
+        <h3>Ingredients</h3>
+        <div id="scale-controls-${escapeHTML(recipe.id)}"></div>
+        <div id="scaled-ingredients-${escapeHTML(recipe.id)}">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Amount</th>
+                <th>Calories</th>
+                <th>Protein</th>
+                <th>Fiber</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ingredientRows}
+            </tbody>
+            <tfoot>
+              <tr style="font-weight:700;">
+                <td>Total</td>
+                <td></td>
+                <td>${totalCal.toFixed(1)}</td>
+                <td>${totalProtein.toFixed(1)}g</td>
+                <td>${totalFiber.toFixed(1)}g</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="recipe-detail__instructions">
+        ${(recipe.instructions || []).length > 0 ? `
+          <button class="recipe-detail__instructions-toggle" data-action="toggle-instructions">
+            <span class="arrow">&#9654;</span> Instructions (${recipe.instructions.length} step${recipe.instructions.length !== 1 ? 's' : ''})
+          </button>
+          <ol style="display:none;">
+            ${recipe.instructions.map(step => `<li><span>${escapeHTML(step)}</span></li>`).join('')}
+          </ol>
+        ` : `
+          <button class="recipe-detail__instructions-toggle" style="cursor:default;opacity:0.5;">
+            <span class="arrow">&#9654;</span> Instructions
+          </button>
+          <p class="recipe-detail__instructions-empty">No cooking instructions available for this recipe.</p>
+        `}
+      </div>
+
+      <div class="recipe-detail__tags" data-tags-section="${escapeHTML(recipe.id)}">
+        <h3>Tags</h3>
+        <div class="flex flex-wrap gap-1 mb-1" id="tag-pills-${escapeHTML(recipe.id)}">
+          ${tagPills || '<span class="text-sm text-secondary">No tags yet</span>'}
+        </div>
+        <div class="flex gap-1" style="align-items:center;">
+          <input type="text" id="tag-input-${escapeHTML(recipe.id)}" placeholder="Add a tag..." style="width:auto;flex:1;max-width:200px;">
+          <span class="text-sm text-secondary">Press Enter to add</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Read edited field values from the modal and return a data object
+ * using snake_case keys for the API.
+ */
+function collectEditedFields() {
+  const val = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value : undefined;
+  };
+  const numVal = (id) => {
+    const v = val(id);
+    if (v === '' || v === undefined) return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+
+  return {
+    name: val('edit-name'),
+    description: val('edit-description'),
+    cuisine: val('edit-cuisine'),
+    main_protein: val('edit-main-protein'),
+    meal_type: val('edit-meal-type'),
+    phase: val('edit-phase'),
+    servings: numVal('edit-servings'),
+    prep_time_min: numVal('edit-prep-time'),
+    cook_time_min: numVal('edit-cook-time'),
+    marinate_time_min: numVal('edit-marinate-time'),
+  };
+}
+
+/**
+ * Enter edit mode: replace the modal content with editable fields.
+ */
+function enterEditMode(recipeId) {
+  const numId = typeof recipeId === 'string' ? parseInt(recipeId, 10) : recipeId;
+  const recipe = getRecipes().find((r) => r.id === numId);
+  if (!recipe) return;
+
+  const html = buildEditModeHTML(recipe);
+
+  // Replace the modal content in-place
+  const modalContent = document.querySelector('.modal-content') ||
+    document.querySelector('#recipe-modal-overlay .modal-content');
+  if (modalContent) {
+    modalContent.innerHTML = html;
+  }
+}
+
+/**
+ * Save edited recipe fields via API, then refresh the modal to read-only.
+ */
+async function saveEditedRecipe(recipeId) {
+  const numId = typeof recipeId === 'string' ? parseInt(recipeId, 10) : recipeId;
+  const data = collectEditedFields();
+
+  try {
+    await updateRecipe(numId, data);
+    showToast('Recipe updated');
+
+    // Reload the recipe cache from the API
+    await loadRecipes();
+
+    // Re-open the modal in read-only mode with fresh data
+    await openRecipeModal(numId);
+  } catch (err) {
+    console.error('Failed to save recipe:', err);
+    showToast(err.message || 'Failed to save recipe', 'error');
+  }
+}
+
+/**
+ * Cancel edit mode: re-render the modal in read-only mode with original data.
+ */
+async function cancelEditMode(recipeId) {
+  const numId = typeof recipeId === 'string' ? parseInt(recipeId, 10) : recipeId;
+  await openRecipeModal(numId);
+}
+
+// ============================================================
+// Modal open/close helpers
+// ============================================================
+
+export async function openRecipeModal(recipeId) {
+  const numId = typeof recipeId === 'string' ? parseInt(recipeId, 10) : recipeId;
+  const recipe = getRecipes().find((r) => r.id === numId);
+  if (!recipe) return;
+
+  const html = buildRecipeDetailHTML(recipe);
+
+  try {
+    const app = await getApp();
+    if (app.openModal) {
+      app.openModal(html);
+    } else {
+      // Fallback: create modal overlay manually
+      showModalFallback(html);
+    }
+  } catch {
+    // app.js not available yet; use fallback
+    showModalFallback(html);
+  }
+
+  // Initialize recipe scaling controls
+  initScaleControls(recipe);
+}
+
+/**
+ * Dynamically import recipe-scaling.js and wire up the scale controls
+ * for an open recipe detail modal.
+ */
+async function initScaleControls(recipe) {
+  try {
+    const { renderScaleControls, renderScaledIngredientTable, attachScaleListeners, scaleRecipe } =
+      await import('./recipe-scaling.js');
+
+    const controlsContainer = document.getElementById(`scale-controls-${recipe.id}`);
+    const ingredientsContainer = document.getElementById(`scaled-ingredients-${recipe.id}`);
+    if (!controlsContainer || !ingredientsContainer) return;
+
+    let currentScale = 1;
+
+    // Render initial scale controls
+    controlsContainer.innerHTML = renderScaleControls(recipe.id, currentScale);
+
+    // Callback when scale changes
+    function onScaleChange(newScale) {
+      currentScale = newScale;
+
+      // Re-render the scale controls to update active preset
+      controlsContainer.innerHTML = renderScaleControls(recipe.id, currentScale);
+
+      // Re-render ingredient table with scaled values
+      ingredientsContainer.innerHTML = renderScaledIngredientTable(recipe, currentScale);
+
+      // Update the macro summary display in the modal header
+      const scaled = scaleRecipe(recipe, currentScale);
+      const detailEl = document.querySelector(`[data-detail-recipe-id="${recipe.id}"]`);
+      if (detailEl) {
+        const macroItems = detailEl.querySelectorAll('.recipe-detail__macro-value');
+        if (macroItems.length >= 3) {
+          macroItems[0].textContent = scaled.calories;
+          macroItems[1].textContent = scaled.protein + 'g';
+          macroItems[2].textContent = scaled.fiber + 'g';
+        }
+      }
+
+      // Re-attach listeners since we replaced the controls HTML
+      attachScaleListeners(controlsContainer.parentElement, recipe.id, currentScale, onScaleChange);
+    }
+
+    // Attach initial listeners
+    attachScaleListeners(controlsContainer.parentElement, recipe.id, currentScale, onScaleChange);
+  } catch (err) {
+    console.warn('Recipe scaling module not available:', err);
+  }
+}
+
+function showModalFallback(contentHTML) {
+  // Remove any existing modal
+  closeModalFallback();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'recipe-modal-overlay';
+  overlay.innerHTML = `<div class="modal-content">${contentHTML}</div>`;
+
+  // Close on overlay click (not content click)
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeModalFallback();
+    }
+  });
+
+  document.body.appendChild(overlay);
+}
+
+function closeModalFallback() {
+  const overlay = document.getElementById('recipe-modal-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+async function showToast(message, type = 'success') {
+  try {
+    const app = await getApp();
+    if (app.showToast) {
+      app.showToast(message, type);
+      return;
+    }
+  } catch {
+    // app.js not available
+  }
+
+  // Fallback toast
+  let container = document.querySelector('.toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+    if (container.children.length === 0) {
+      container.remove();
+    }
+  }, 2500);
+}
+
+// ============================================================
+// Event handling
+// ============================================================
+
+function attachEvents(container) {
+  // Debounced search
+  const searchInput = container.querySelector('#recipe-search');
+  if (searchInput) {
+    const debouncedSearch = debounce((value) => {
+      filterState.search = value;
+      renderGrid(container);
+    }, 300);
+
+    searchInput.addEventListener('input', (e) => {
+      debouncedSearch(e.target.value);
+    });
+  }
+
+  // Cuisine select
+  const cuisineSelect = container.querySelector('#filter-cuisine');
+  if (cuisineSelect) {
+    cuisineSelect.addEventListener('change', (e) => {
+      filterState.cuisine = e.target.value;
+      renderGrid(container);
+    });
+  }
+
+  // Protein source multi-select
+  const proteinToggle = container.querySelector('#protein-multiselect-toggle');
+  const proteinDropdown = container.querySelector('#protein-multiselect-dropdown');
+
+  if (proteinToggle && proteinDropdown) {
+    // Toggle dropdown open/close
+    proteinToggle.addEventListener('click', (e) => {
+      // If clicking a pill remove button, handle removal instead
+      const removeBtn = e.target.closest('.filter-pill__remove');
+      if (removeBtn) {
+        e.stopPropagation();
+        const val = removeBtn.dataset.protein;
+        filterState.protein = filterState.protein.filter(p => p !== val);
+        rebuildProteinToggle(container);
+        syncProteinCheckboxes(container);
+        renderGrid(container);
+        return;
+      }
+      proteinDropdown.classList.toggle('hidden');
+    });
+
+    // Handle checkbox changes inside dropdown
+    proteinDropdown.addEventListener('change', (e) => {
+      if (e.target.type === 'checkbox') {
+        const val = e.target.value;
+        if (e.target.checked) {
+          if (!filterState.protein.includes(val)) {
+            filterState.protein.push(val);
+          }
+        } else {
+          filterState.protein = filterState.protein.filter(p => p !== val);
+        }
+        rebuildProteinToggle(container);
+        renderGrid(container);
+      }
+    });
+
+    // Close dropdown when clicking outside (uses named function for cleanup)
+    document.addEventListener('click', handleDropdownOutsideClick);
+  }
+
+  // Fiber filter input
+  const fiberInput = container.querySelector('#filter-fiber');
+  if (fiberInput) {
+    const debouncedFiber = debounce((value) => {
+      filterState.fiberTarget = value;
+      renderGrid(container);
+    }, 300);
+    fiberInput.addEventListener('input', (e) => {
+      debouncedFiber(e.target.value);
+    });
+  }
+
+  // Protein content filter input
+  const proteinContentInput = container.querySelector('#filter-protein-content');
+  if (proteinContentInput) {
+    const debouncedProteinContent = debounce((value) => {
+      filterState.proteinTarget = value;
+      renderGrid(container);
+    }, 300);
+    proteinContentInput.addEventListener('input', (e) => {
+      debouncedProteinContent(e.target.value);
+    });
+  }
+
+  // Margin input
+  const marginInput = container.querySelector('#filter-margin');
+  if (marginInput) {
+    marginInput.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10);
+      filterState.margin = isNaN(val) || val < 0 ? 5 : val;
+      store.setItem('mp_filterMargin', filterState.margin);
+      // Re-filter if either numeric filter is active
+      if (filterState.fiberTarget !== '' || filterState.proteinTarget !== '') {
+        renderGrid(container);
+      }
+    });
+  }
+
+  // Cook count filter select
+  const cookCountSelect = container.querySelector('#filter-cook-count');
+  if (cookCountSelect) {
+    cookCountSelect.addEventListener('change', (e) => {
+      filterState.cookCountMax = e.target.value;
+      renderGrid(container);
+    });
+  }
+
+  // Sort select
+  const sortSelect = container.querySelector('#filter-sort');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      filterState.sort = e.target.value;
+      renderGrid(container);
+    });
+  }
+
+  // Clear filters button
+  const clearBtn = container.querySelector('#clear-filters');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      resetFilters(container);
+    });
+  }
+
+  // Event delegation on the container for:
+  // - Meal type buttons
+  // - Favorites toggle filter
+  // - Favorite heart buttons on cards
+  // - Recipe card clicks (open modal)
+  container.addEventListener('click', async (e) => {
+    const target = e.target;
+
+    // Meal type filter buttons
+    const mealTypeBtn = target.closest('[data-meal-type]');
+    if (mealTypeBtn && container.contains(mealTypeBtn)) {
+      filterState.mealType = mealTypeBtn.dataset.mealType;
+      container.querySelectorAll('[data-meal-type]').forEach((btn) => {
+        btn.classList.toggle('btn-primary', btn.dataset.mealType === filterState.mealType);
+        btn.classList.toggle('btn-secondary', btn.dataset.mealType !== filterState.mealType);
+      });
+      renderGrid(container);
+      return;
+    }
+
+    // Favorites filter toggle
+    if (target.id === 'filter-favorites' || target.closest('#filter-favorites')) {
+      filterState.favoritesOnly = !filterState.favoritesOnly;
+      const favBtn = container.querySelector('#filter-favorites');
+      if (favBtn) {
+        favBtn.classList.toggle('favorite--active', filterState.favoritesOnly);
+      }
+      renderGrid(container);
+      return;
+    }
+
+    // Favorite toggle on card
+    const favAction = target.closest('[data-action="toggle-favorite"]');
+    if (favAction) {
+      e.stopPropagation();
+      const recipeId = favAction.dataset.recipeId;
+      const isNowFav = store.toggleFavorite(recipeId);
+      favAction.classList.toggle('favorite--active', isNowFav);
+
+      const recipeName = getRecipes().find((r) => r.id === recipeId)?.name || 'Recipe';
+      showToast(isNowFav ? `${recipeName} added to favorites` : `${recipeName} removed from favorites`);
+
+      // If favorites-only filter is active and we unfavorited, re-render grid
+      if (filterState.favoritesOnly && !isNowFav) {
+        renderGrid(container);
+      }
+      return;
+    }
+
+    // Recipe card click -> open modal
+    const card = target.closest('.recipe-card');
+    if (card && container.contains(card)) {
+      const recipeId = card.dataset.recipeId;
+      if (recipeId) {
+        openRecipeModal(recipeId);
+      }
+      return;
+    }
+  });
+
+  // Event delegation on document.body for modal interactions
+  // (modal is appended to body, outside container)
+  document.body.addEventListener('click', handleModalClick);
+  document.body.addEventListener('keydown', handleModalKeydown);
+}
+
+function handleModalClick(e) {
+  const target = e.target;
+
+  // Close modal button
+  const closeBtn = target.closest('[data-action="close-modal"]');
+  if (closeBtn) {
+    closeModalFallback();
+    // Also try app.js closeModal
+    getApp().then((app) => {
+      if (app.closeModal) app.closeModal();
+    }).catch(() => {});
+    return;
+  }
+
+  // Edit recipe button
+  const editBtn = target.closest('[data-action="edit-recipe"]');
+  if (editBtn) {
+    const recipeId = editBtn.dataset.recipeId;
+    enterEditMode(recipeId);
+    return;
+  }
+
+  // Save recipe button
+  const saveBtn = target.closest('[data-action="save-recipe"]');
+  if (saveBtn) {
+    const recipeId = saveBtn.dataset.recipeId;
+    saveEditedRecipe(recipeId);
+    return;
+  }
+
+  // Cancel edit button
+  const cancelBtn = target.closest('[data-action="cancel-edit"]');
+  if (cancelBtn) {
+    const recipeId = cancelBtn.dataset.recipeId;
+    cancelEditMode(recipeId);
+    return;
+  }
+
+  // Full Editor link
+  const fullEditorLink = target.closest('[data-action="full-editor"]');
+  if (fullEditorLink) {
+    e.preventDefault();
+    const recipeId = fullEditorLink.dataset.recipeId;
+    // Close the modal
+    closeModalFallback();
+    getApp().then((app) => {
+      if (app.closeModal) app.closeModal();
+    }).catch(() => {});
+    // Navigate to the full editor
+    window.location.hash = `#edit-recipe/${recipeId}`;
+    return;
+  }
+
+  // Favorite toggle in detail modal
+  const favDetailBtn = target.closest('[data-action="toggle-favorite-detail"]');
+  if (favDetailBtn) {
+    const recipeId = favDetailBtn.dataset.recipeId;
+    const isNowFav = store.toggleFavorite(recipeId);
+    favDetailBtn.classList.toggle('favorite--active', isNowFav);
+    favDetailBtn.innerHTML = `&#9829; ${isNowFav ? 'Favorited' : 'Add to Favorites'}`;
+
+    const recipeName = getRecipes().find((r) => r.id === recipeId)?.name || 'Recipe';
+    showToast(isNowFav ? `${recipeName} added to favorites` : `${recipeName} removed from favorites`);
+
+    // Also update the card heart in the grid if visible
+    const gridHeart = document.querySelector(`.recipe-card [data-action="toggle-favorite"][data-recipe-id="${CSS.escape(recipeId)}"]`);
+    if (gridHeart) {
+      gridHeart.classList.toggle('favorite--active', isNowFav);
+    }
+    return;
+  }
+
+  // Instructions toggle
+  const instrToggle = target.closest('[data-action="toggle-instructions"]');
+  if (instrToggle) {
+    const list = instrToggle.nextElementSibling;
+    if (list) {
+      const isOpen = instrToggle.classList.toggle('open');
+      list.style.display = isOpen ? 'block' : 'none';
+    }
+    return;
+  }
+
+  // Tag remove button
+  const tagRemoveBtn = target.closest('.tag-remove');
+  if (tagRemoveBtn) {
+    const recipeId = tagRemoveBtn.dataset.recipeId;
+    const tagToRemove = tagRemoveBtn.dataset.tag;
+    const recipeTags = store.getRecipeTags();
+    const currentTags = recipeTags[recipeId] || [];
+    const updatedTags = currentTags.filter((t) => t !== tagToRemove);
+    store.setRecipeTags(recipeId, updatedTags);
+    rerenderTagPills(recipeId);
+    showToast(`Tag "${tagToRemove}" removed`);
+    return;
+  }
+}
+
+function handleModalKeydown(e) {
+  // Add tag on Enter in tag input
+  if (e.key === 'Enter' && e.target.id && e.target.id.startsWith('tag-input-')) {
+    e.preventDefault();
+    const recipeId = e.target.id.replace('tag-input-', '');
+    const newTag = e.target.value.trim().toLowerCase();
+    if (!newTag) return;
+
+    const recipeTags = store.getRecipeTags();
+    const currentTags = recipeTags[recipeId] || [];
+
+    // Prevent duplicates
+    if (currentTags.includes(newTag)) {
+      showToast(`Tag "${newTag}" already exists`, 'info');
+      e.target.value = '';
+      return;
+    }
+
+    currentTags.push(newTag);
+    store.setRecipeTags(recipeId, currentTags);
+    e.target.value = '';
+    rerenderTagPills(recipeId);
+    showToast(`Tag "${newTag}" added`);
+  }
+
+  // Close modal on Escape
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('recipe-modal-overlay');
+    if (overlay) {
+      closeModalFallback();
+    }
+    getApp().then((app) => {
+      if (app.closeModal) app.closeModal();
+    }).catch(() => {});
+  }
+}
+
+// ============================================================
+// Main render entry point
+// ============================================================
+
+/**
+ * Render the complete recipe library page into the given container element.
+ *
+ * @param {HTMLElement} container - The #app-content element.
+ */
+export function renderRecipeLibrary(container) {
+  // Remove any prior event listeners to avoid duplicates
+  document.body.removeEventListener('click', handleModalClick);
+  document.body.removeEventListener('keydown', handleModalKeydown);
+  document.removeEventListener('click', handleDropdownOutsideClick);
+
+  const filterBarHTML = buildFilterBarHTML();
+  const filtered = getFilteredRecipes();
+  const cardsHTML = filtered.length > 0
+    ? filtered.map(buildRecipeCardHTML).join('')
+    : `<div class="empty-state" style="grid-column: 1 / -1;">
+         <p>No recipes match your filters.</p>
+         <p class="text-sm">Try adjusting your search or clearing filters.</p>
+       </div>`;
+
+  container.innerHTML = `
+    <div class="page-transition">
+      <h2 style="margin-bottom:1rem;">Recipe Library</h2>
+      ${filterBarHTML}
+      <div class="grid-3" id="recipe-grid">
+        ${cardsHTML}
+      </div>
+    </div>
+  `;
+
+  // Update results count
+  const countEl = container.querySelector('#results-count');
+  if (countEl) {
+    countEl.textContent = `Showing ${filtered.length} of ${getRecipes().length} recipes`;
+  }
+
+  // Restore selected values on filter dropdowns (for re-renders)
+  const cuisineSelect = container.querySelector('#filter-cuisine');
+  if (cuisineSelect && filterState.cuisine) {
+    cuisineSelect.value = filterState.cuisine;
+  }
+
+  attachEvents(container);
+}
