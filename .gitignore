@@ -1,6 +1,32 @@
-.DS_Store
-node_modules/
-.worktrees/
+# Python
 __pycache__/
-.env
+*.py[cod]
+*$py.class
+*.so
+.venv/
 venv/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node
+node_modules/
+
+# Project
+.worktrees/

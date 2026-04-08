@@ -5,14 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Start Flask backend (from server/)
-cd server && python app.py          # Runs on localhost:5001, debug mode
+# Set up the virtual environment (one-time)
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+uv pip install -r server/requirements.txt
 
-# Frontend - no build step, open app/index.html in browser
-# Frontend connects to http://127.0.0.1:5001/api
-
-# Install Python dependencies
-pip install -r server/requirements.txt
+# Start the app (serves both frontend and API on port 5001)
+cd server && python app.py
 
 # Run recipe migration (one-time, imports from recipes.js into SQLite)
 cd server && python migrate_recipes.py
@@ -22,18 +21,18 @@ cd server && python migrate_recipes.py
 
 ## Architecture
 
-Full-stack meal planning app: vanilla JS SPA frontend + Flask API backend + SQLite database.
+Full-stack meal planning app: vanilla JS SPA frontend + Flask API backend + SQLite database. Flask serves both the static frontend and the API from a single process on port 5001. Caddy reverse-proxies port 5100 → localhost:5001 for HTTPS access.
 
 ```
-app/ (frontend SPA)  ←→  server/ (Flask :5001)  ←→  data/recipes.db (SQLite)
+app/ (frontend SPA)  ←→  server/ (Flask :5001, serves both)  ←→  data/recipes.db (SQLite)
                                 ↓
                          USDA FoodData Central API (nutrition lookup)
                          Claude Agent SDK (recipe text parsing)
 ```
 
-**Frontend** (`app/`): Hash-based SPA routing (`#recipes`, `#planner`, etc.). Each page has a module in `app/js/` with a `render*` function. State management via `store.js` using localStorage with pub/sub pattern. No framework, no build step.
+**Frontend** (`app/`): Hash-based SPA routing (`#recipes`, `#planner`, etc.). Each page has a module in `app/js/` with a `render*` function. State management via `store.js` using localStorage with pub/sub pattern. No framework, no build step. Served as static files by Flask.
 
-**Backend** (`server/`): Flask with blueprints for modular routes. Entry point is `app.py`.
+**Backend** (`server/`): Flask with blueprints for modular routes. Entry point is `app.py`. Serves the frontend static files from `app/` and all API routes.
 - `routes/` — API endpoints (`/api/recipes`, `/api/ingredients`, `/api/tags`)
 - `models/` — Database abstractions (recipe, ingredient, tag CRUD)
 - `services/` — External integrations (USDA lookup with caching/scoring, Claude recipe parsing)
